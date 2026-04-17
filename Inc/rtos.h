@@ -5,6 +5,8 @@
  *      Author: dinaliassylbek
  */
 
+#include <stdint.h>
+
 #ifndef RTOS_H_
 #define RTOS_H_
 
