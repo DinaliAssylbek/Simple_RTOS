@@ -68,4 +68,5 @@ void OS_Launch(uint32_t theTimeSlice) {
 	NVIC_SetPriority(SysTick_IRQn, 0x0F); // Set to lowest priority
 	SysTick->LOAD = (theTimeSlice - 1);// Set what count it should go up to
 	SysTick->CTRL |= 0x7; // 0x07 = Enable + TickInt + ClickSource
+	StartOS();
 }

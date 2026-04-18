@@ -21,8 +21,6 @@ int main(void)
 	Profile_Init();
 	OS_AddThreads(&task0, &task1, &task2);
 	OS_Launch(8000); // Switch every 1ms
-
-	StartOS();
 	return 0;
 }
 
