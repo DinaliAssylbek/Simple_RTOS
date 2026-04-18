@@ -24,3 +24,24 @@ int main(void)
     }
 }
 
+void task0(void) {
+	int count = 0;
+	while (true) {
+		count++;
+	}
+}
+
+void task1(void) {
+	int count = 0;
+	while (true) {
+		count++;
+	}
+}
+
+void task2(void) {
+	int count = 0;
+	while (true) {
+		count++;
+	}
+}
+
