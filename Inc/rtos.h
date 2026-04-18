@@ -15,5 +15,6 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void));
 
 void OS_Init(void);
 void OS_Launch(uint32_t theTimeSlice);
+extern void StartOS(void);
 
 #endif /* RTOS_H_ */
