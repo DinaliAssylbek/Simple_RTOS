@@ -8,6 +8,7 @@
 #include "rtos.h"
 #include "scheduler.h"
 #include "interrupts.h"
+#include "core_cm3.h"
 
 void SetInitialStack(int i) {
 	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
@@ -57,10 +58,16 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 }
 
 void OS_Init(void) {
-
+	StartCritical();	// Start Critical
+	BSP_Clock_Init();  // Enable System Clock
 }
 
 void OS_Launch(uint32_t theTimeSlice) {
+	SysTick->CTRL = 0; // Disable SysTick
+	SysTick->VAL = 0; // Clear Count
+	__NVIC_SetPriority(SysTick_IRQn, 0x0F) == 0; // Set to lowest priority
+	SysTick->LOAD = (theTimeSlice - 1);// Set what count it should go up to
+	SysTick->CTRL |= 0x7; // 0x07 = Enable + TickInt + ClickSource
 
 }
 
