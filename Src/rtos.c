@@ -54,7 +54,6 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 	EndCritical(state);
 
 	return 1;
-
 }
 
 void OS_Init(void) {
@@ -69,4 +68,24 @@ void OS_Launch(uint32_t theTimeSlice) {
 	SysTick->LOAD = (theTimeSlice - 1);// Set what count it should go up to
 	SysTick->CTRL |= 0x7; // 0x07 = Enable + TickInt + ClickSource
 	StartOS();
+}
+
+void OS_InitSemaphore(int32_t *s, int32_t initialValue) {
+	(*s) = initialValue;
+}
+
+void OS_Wait(int32_t *s) {
+	uint32_t status = StartCritical();
+	while (*s == 0) {
+		EndCritical(status);
+		status = StartCritical();
+	}
+	(*s) = (*s) - 1;
+	EndCritical(status);
+}
+
+void OS_Signal(int32_t *s) {
+	uint32_t status = StartCritical();
+	(*s) = (*s) + 1;
+	EndCritical(status);
 }

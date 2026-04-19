@@ -10,11 +10,17 @@
 #ifndef RTOS_H_
 #define RTOS_H_
 
+// Thread Initialization
 void SetInitialStack(int i);
 int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void));
 
 void OS_Init(void);
 void OS_Launch(uint32_t theTimeSlice);
 extern void StartOS(void);
+
+// Semaphores
+void OS_InitSemaphore(int32_t *s, int32_t initialValue);
+void OS_Wait(int32_t *s);
+void OS_Signal(int32_t *s);
 
 #endif /* RTOS_H_ */
