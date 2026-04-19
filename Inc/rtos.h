@@ -23,4 +23,6 @@ void OS_InitSemaphore(int32_t *s, int32_t initialValue);
 void OS_Wait(int32_t *s);
 void OS_Signal(int32_t *s);
 
+void OS_Suspend(void);
+
 #endif /* RTOS_H_ */

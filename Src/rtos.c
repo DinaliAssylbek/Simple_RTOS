@@ -76,16 +76,35 @@ void OS_InitSemaphore(int32_t *s, int32_t initialValue) {
 
 void OS_Wait(int32_t *s) {
 	uint32_t status = StartCritical();
-	while (*s == 0) {
+	(*s) = (*s) - 1;
+	while (*s < 0) {
+		RunPt->blocked = s; // Set tcb to blocked
 		EndCritical(status);
+		OS_Suspend();
 		status = StartCritical();
 	}
-	(*s) = (*s) - 1;
+	RunPt->blocked = 0;
 	EndCritical(status);
 }
 
 void OS_Signal(int32_t *s) {
+	tcbType *pt;
 	uint32_t status = StartCritical();
 	(*s) = (*s) + 1;
+
+	// Wake up blocked thread
+	if (*s <= 0) {
+		pt = RunPt->next;
+		while (pt->blocked != s) {
+			pt = pt->next;
+		}
+		pt->blocked = 0;
+	}
+
 	EndCritical(status);
+}
+
+void OS_Suspend(void) {
+	SysTick->VAL = 0; // Clear Count
+	SCB->ICSR |= SCB_ICSR_PENDSTSET_Msk; // Trigger Systick
 }

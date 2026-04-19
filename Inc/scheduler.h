@@ -15,6 +15,7 @@
 
 struct tcb {
 	int32_t *sp; 		// Pointer to Stack (Valid for non active threads)
+	int32_t *blocked;   // Block Status: Null = Not blocked
 	struct tcb *next;	// Pointer to next tcb node
 };
 
@@ -22,6 +23,8 @@ typedef struct tcb tcbType;
 extern tcbType tcbs[NUMTHREADS];
 extern tcbType *RunPt;
 extern int32_t Stacks[NUMTHREADS][STACKSIZE];
+
+void Scheduler(void);
 
 
 #endif /* SCHEDULER_H_ */
