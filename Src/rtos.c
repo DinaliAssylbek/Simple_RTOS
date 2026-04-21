@@ -108,3 +108,7 @@ void OS_Suspend(void) {
 	SysTick->VAL = 0; // Clear Count
 	SCB->ICSR |= SCB_ICSR_PENDSTSET_Msk; // Trigger Systick
 }
+
+void OS_Sleep(int32_t time_ms) {
+
+}

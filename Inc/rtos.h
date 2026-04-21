@@ -24,5 +24,6 @@ void OS_Wait(int32_t *s);
 void OS_Signal(int32_t *s);
 
 void OS_Suspend(void);
+void OS_Sleep(int32_t time_ms);
 
 #endif /* RTOS_H_ */

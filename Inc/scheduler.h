@@ -16,6 +16,7 @@
 struct tcb {
 	int32_t *sp; 		// Pointer to Stack (Valid for non active threads)
 	int32_t *blocked;   // Block Status: Null = Not blocked
+	int32_t sleep;
 	struct tcb *next;	// Pointer to next tcb node
 };
 
