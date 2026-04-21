@@ -110,5 +110,8 @@ void OS_Suspend(void) {
 }
 
 void OS_Sleep(int32_t time_ms) {
-
+	uint32_t status = StartCritical();
+	RunPt->sleep = time_ms;
+	EndCritical(status);
+	OS_Suspend();
 }
