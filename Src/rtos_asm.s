@@ -1,11 +1,34 @@
 	.syntax unified
-	.global SysTick_Handler
 	.thumb
+
+	.global StartOS
+	.global SysTick_Handler
 
 	.extern RunPt
 	.extern Scheduler
+
 	.section .text
 
+// =====================
+// StartOS
+// =====================
+.type StartOS, %function
+StartOS:
+	LDR R0, =RunPt	 // Get Address of the RunPtr Pointer
+	LDR R1, [R0]	 // Get the Address of TCB (Pointing to the Stack Pointer)
+	LDR SP, [R1]	 // Load Stack Pointer value into SP
+	POP {R4-R11}	 // Pop PendSV registers
+	POP {R0-R3}		 // Pop Registers R0 through R3
+	POP {R12}		 // Pop R12 Register
+	ADD SP, SP, #4	 // Skip LR Register value
+	POP {LR}		 // Put function address (PC) into LR
+	ADD SP, SP, #4	 // Skip PCR register
+	CPSIE I			 // Enable Interrupts
+	BX LR			 // Return to first function (task0)
+
+// =====================
+// SysTick_Handler
+// =====================
 .type SysTick_Handler, %function
 SysTick_Handler:
 	CPSID I			 // Disable Interrupts
