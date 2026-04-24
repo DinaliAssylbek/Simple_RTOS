@@ -2,22 +2,36 @@
 
 tcbType tcbs[NUMTHREADS];
 tcbType *RunPt;
+tcbType *SleepListHead;
+tcbType *ReadyListHead;
 int32_t Stacks[NUMTHREADS][STACKSIZE];
 
 void Scheduler(void) {
 
 	// Decrement all sleeping threads
-	tcbType *p = RunPt;
-	do {
-		if (p->sleep > 0) {
-			p->sleep--;
+	if (SleepListHead != NULL) {
+
+		SleepListHead->sleep--;
+
+		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
+			tcbType *p = SleepListHead;
+			SleepListHead = SleepListHead->next;
+
+			p->next = ReadyListHead;
+			p->prev = ReadyListHead->prev;
+
+			p->prev->next = p;
+			p->next->prev = p;
+
+			ReadyListHead = p;
 		}
-		p = p->next;
-	} while (p != RunPt);
+
+	}
 
 	// Transition to next thread;
-	RunPt = RunPt->next;
-	while ((RunPt->sleep) || (RunPt->blocked)) {
+	RunPt = ReadyListHead;
+	while ((RunPt->blocked)) {
 		RunPt = RunPt->next;
 	}
+	ReadyListHead = RunPt->next;
 }

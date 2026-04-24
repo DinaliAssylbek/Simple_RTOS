@@ -38,6 +38,10 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 	tcbs[1].next = &tcbs[2];
 	tcbs[2].next = &tcbs[0];
 
+	tcbs[0].prev = &tcbs[2];
+	tcbs[1].prev = &tcbs[0];
+	tcbs[2].prev = &tcbs[1];
+
 	// Initialize stacks for each thread
 	SetInitialStack(0);
 	SetInitialStack(1);
@@ -50,6 +54,7 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 
 	// First thread to run is tcb[0]
 	RunPt = &tcbs[0];
+	ReadyListHead = &tcbs[1];
 
 	EndCritical(state);
 
@@ -106,12 +111,72 @@ void OS_Signal(int32_t *s) {
 
 void OS_Suspend(void) {
 	SysTick->VAL = 0; // Clear Count
-	SCB->ICSR |= SCB_ICSR_PENDSTSET_Msk; // Trigger Systick
+	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; // Trigger PendSV (Context Switch)
 }
 
 void OS_Sleep(int32_t time_ms) {
+
 	uint32_t status = StartCritical();
+
 	RunPt->sleep = time_ms;
-	EndCritical(status);
+	// Remove tcb from ready_queue
+	if (RunPt->next != RunPt) { // More than one node
+
+		RunPt->prev->next = RunPt->next;
+		RunPt->next->prev = RunPt->prev;
+		ReadyListHead = RunPt->next;
+
+		if (SleepListHead == NULL) {
+
+			SleepListHead = RunPt;
+			SleepListHead->next = NULL;
+			SleepListHead->prev = NULL;
+
+		} else {
+
+			// Edge case: time_ms < SleepPt->sleep
+			if (SleepListHead->sleep >= RunPt->sleep) {
+
+				SleepListHead->sleep -= RunPt->sleep;
+				RunPt->next = SleepListHead;
+				RunPt->prev = NULL;
+				SleepListHead = RunPt;
+
+			} else {
+
+				tcbType *curr_node = SleepListHead;
+				tcbType *prev_node = NULL;
+
+				while (curr_node != NULL && curr_node->sleep < RunPt->sleep) {
+					RunPt->sleep -= curr_node->sleep;
+					prev_node = curr_node;
+					curr_node = curr_node->next;
+				}
+
+				prev_node->next = RunPt;
+				RunPt->next = curr_node;
+				RunPt->prev = NULL;
+
+				if (curr_node != NULL) {
+					curr_node->sleep -= RunPt->sleep;
+				}
+
+			}
+
+		}
+
+	}
+
 	OS_Suspend();
+	EndCritical(status);
+
 }
+
+
+
+
+
+
+
+
+

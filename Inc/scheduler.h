@@ -6,6 +6,7 @@
  */
 
 #include <stdint.h>
+#include <stddef.h>
 
 #ifndef SCHEDULER_H_
 #define SCHEDULER_H_
@@ -18,11 +19,14 @@ struct tcb {
 	int32_t *blocked;   // Block Status: Null = Not blocked
 	int32_t sleep;
 	struct tcb *next;	// Pointer to next tcb node
+	struct tcb *prev;	// Pointer to previous tcb node
 };
 
 typedef struct tcb tcbType;
 extern tcbType tcbs[NUMTHREADS];
 extern tcbType *RunPt;
+extern tcbType *SleepListHead;
+extern tcbType *ReadyListHead;
 extern int32_t Stacks[NUMTHREADS][STACKSIZE];
 
 void Scheduler(void);
