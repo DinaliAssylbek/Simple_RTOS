@@ -6,7 +6,6 @@
  */
 
 #include "rtos.h"
-#include "scheduler.h"
 #include "interrupts.h"
 #include "stm32f103xb.h"
 
@@ -75,8 +74,9 @@ void OS_Launch(uint32_t theTimeSlice) {
 	StartOS();
 }
 
-void OS_InitSemaphore(int32_t *s, int32_t initialValue) {
-	(*s) = initialValue;
+void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
+	s->value = initialValue;
+	s->BlockedListHead = NULL;
 }
 
 void OS_Wait(int32_t *s) {
