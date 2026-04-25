@@ -83,7 +83,7 @@ void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
 void OS_Wait(semaphoreType *s) {
 	uint32_t status = StartCritical();
 
-	s->value -= 1;
+	s->value--;
 
 	// Move to blocked list
 	if (s->value < 0) {
@@ -118,18 +118,28 @@ void OS_Wait(semaphoreType *s) {
 
 }
 
-void OS_Signal(int32_t *s) {
+void OS_Signal(semaphoreType *s) {
 	tcbType *pt;
 	uint32_t status = StartCritical();
-	(*s) = (*s) + 1;
+
+	s->value++;
 
 	// Wake up blocked thread
-	if (*s <= 0) {
-		pt = RunPt->next;
-		while (pt->blocked != s) {
-			pt = pt->next;
+	if (s->value <= 0) {
+		tcbType *p = s->BlockedListHead;
+		s->BlockedListHead = s->BlockedListHead->next;
+
+		p->next = ReadyListHead;
+		p->prev = ReadyListHead->prev;
+
+		p->prev->next = p;
+		p->next->prev = p;
+
+		ReadyListHead = p;
+
+		if (s->BlockedListHead == NULL) {
+			s->BlockedListTail = NULL;
 		}
-		pt->blocked = 0;
 	}
 
 	EndCritical(status);
