@@ -104,8 +104,8 @@ void OS_Wait(semaphoreType *s) {
 		} else { // Queue is not empty
 
 			s->BlockedListTail->next = RunPt;
+			RunPt->prev = s->BlockedListTail;
 			RunPt->next = NULL;
-			RunPt->prev = NULL;
 			s->BlockedListTail = RunPt;
 
 		}
