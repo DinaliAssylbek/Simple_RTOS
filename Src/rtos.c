@@ -77,19 +77,45 @@ void OS_Launch(uint32_t theTimeSlice) {
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
 	s->value = initialValue;
 	s->BlockedListHead = NULL;
+	s->BlockedListTail = NULL;
 }
 
-void OS_Wait(int32_t *s) {
+void OS_Wait(semaphoreType *s) {
 	uint32_t status = StartCritical();
-	(*s) = (*s) - 1;
-	while (*s < 0) {
-		RunPt->blocked = s; // Set tcb to blocked
-		EndCritical(status);
+
+	s->value -= 1;
+
+	// Move to blocked list
+	if (s->value < 0) {
+
+		// Remove from the Ready Linked List
+		RunPt->prev->next = RunPt->next;
+		RunPt->next->prev = RunPt->prev;
+		ReadyListHead = RunPt->next;
+
+		// Append to Blocked Queue
+		if (s->BlockedListTail == NULL) { // Queue is empty
+
+			s->BlockedListHead = RunPt;
+			s->BlockedListTail = RunPt;
+			s->BlockedListHead->next = NULL;
+			s->BlockedListHead->prev = NULL;
+
+		} else { // Queue is not empty
+
+			s->BlockedListTail->next = RunPt;
+			RunPt->next = NULL;
+			RunPt->prev = NULL;
+			s->BlockedListTail = RunPt;
+
+		}
+
 		OS_Suspend();
-		status = StartCritical();
+
 	}
-	RunPt->blocked = 0;
+
 	EndCritical(status);
+
 }
 
 void OS_Signal(int32_t *s) {

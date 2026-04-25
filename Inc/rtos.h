@@ -15,12 +15,13 @@
 struct semaphore {
 	int32_t *value;
 	tcbType *BlockedListHead;
+	tcbType *BlockedListTail;
 };
 
 typedef struct semaphore semaphoreType;
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue);
-void OS_Wait(int32_t *s);
-void OS_Signal(int32_t *s);
+void OS_Wait(semaphoreType *s);
+void OS_Signal(semaphoreType *s);
 
 // Thread Initialization
 void SetInitialStack(int i);
