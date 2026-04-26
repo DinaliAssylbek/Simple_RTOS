@@ -119,7 +119,6 @@ void OS_Wait(semaphoreType *s) {
 }
 
 void OS_Signal(semaphoreType *s) {
-	tcbType *pt;
 	uint32_t status = StartCritical();
 
 	s->value++;
@@ -207,12 +206,3 @@ void OS_Sleep(int32_t time_ms) {
 	EndCritical(status);
 
 }
-
-
-
-
-
-
-
-
-

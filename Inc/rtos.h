@@ -13,7 +13,7 @@
 
 // Semaphores
 struct semaphore {
-	int32_t *value;
+	int32_t value;
 	tcbType *BlockedListHead;
 	tcbType *BlockedListTail;
 };

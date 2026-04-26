@@ -30,8 +30,5 @@ void Scheduler(void) {
 
 	// Transition to next thread;
 	RunPt = ReadyListHead;
-	while ((RunPt->blocked)) {
-		RunPt = RunPt->next;
-	}
 	ReadyListHead = RunPt->next;
 }

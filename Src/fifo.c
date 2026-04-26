@@ -12,9 +12,9 @@ int32_t static Fifo[FIFOSIZE];
 int32_t volatile *GetPt;
 int32_t volatile *PutPt;
 
-int32_t CurrentSize;
-int32_t RoomLeft;
-int32_t FIFOmutex;
+semaphoreType CurrentSize;
+semaphoreType RoomLeft;
+semaphoreType FIFOmutex;
 
 void OS_Fifo_Init(void) {
 	GetPt = &Fifo[0];
