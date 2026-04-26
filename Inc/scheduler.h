@@ -12,7 +12,7 @@
 #define SCHEDULER_H_
 
 #define STACKSIZE 100
-#define NUMTHREADS 3
+#define NUMTHREADS 4
 
 struct tcb {
 	int32_t *sp; 		// Pointer to Stack (Valid for non active threads)
