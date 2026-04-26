@@ -8,6 +8,20 @@
 #include "rtos.h"
 #include "interrupts.h"
 #include "stm32f103xb.h"
+#include <stddef.h>
+
+static tcbType tcbs[NUMTHREADS];
+static int32_t Stacks[NUMTHREADS][STACKSIZE];
+
+tcbType *RunPt;
+tcbType *SleepListHead;
+tcbType *ReadyListHead;
+
+
+
+static void SetInitialStack(int i);
+
+extern void StartOS(void);
 
 void SetInitialStack(int i) {
 	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
@@ -35,7 +49,7 @@ void IdleTask(void) {
 	}
 }
 
-int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
+void OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 
 	uint32_t state = StartCritical();
 
@@ -68,7 +82,6 @@ int OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 
 	EndCritical(state);
 
-	return 1;
 }
 
 void OS_Init(void) {
@@ -213,4 +226,31 @@ void OS_Sleep(int32_t time_ms) {
 	OS_Suspend();
 	EndCritical(status);
 
+}
+
+void OS_Scheduler(void) {
+
+	// Decrement all sleeping threads
+	if (SleepListHead != NULL) {
+
+		SleepListHead->sleep--;
+
+		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
+			tcbType *p = SleepListHead;
+			SleepListHead = SleepListHead->next;
+
+			p->next = ReadyListHead;
+			p->prev = ReadyListHead->prev;
+
+			p->prev->next = p;
+			p->next->prev = p;
+
+			ReadyListHead = p;
+		}
+
+	}
+
+	// Transition to next thread;
+	RunPt = ReadyListHead;
+	ReadyListHead = RunPt->next;
 }

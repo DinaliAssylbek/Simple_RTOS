@@ -5,7 +5,7 @@
 	.global SysTick_Handler
 
 	.extern RunPt
-	.extern Scheduler
+	.extern OS_Scheduler
 
 	.section .text
 
@@ -39,7 +39,7 @@ SysTick_Handler:
 	STR SP, [R1]	 // Save the new stack pointer in the tcb
 
     PUSH {R0, LR}	 // Save R0 and LR on stack for later use
-    BL Scheduler	 // Run C implementation of Scheduler
+    BL OS_Scheduler	 // Run C implementation of Scheduler
     POP {R0, LR}	 // Retrieve R0 and LR from stack
     LDR R1, [R0]	 // R1 = RunPt, new thread
 
