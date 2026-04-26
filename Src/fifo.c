@@ -1,58 +1,67 @@
 /*
  * fifo.c
+ * Thread-safe, Blocking FIFO Buffer
+ * Description: Implements a producer-consumer circular buffer using
+ * three-semaphore synchronization logic.
  *
- *  Created on: Apr 19, 2026
- *      Author: dinaliassylbek
+ * Author: Dinali Assylbek
  */
+
+//==================================================================================================
+// INCLUDES
+//==================================================================================================
 
 #include "fifo.h"
 #include "rtos.h"
 
-int32_t static Fifo[FIFOSIZE];
-int32_t volatile *GetPt;
-int32_t volatile *PutPt;
+//==================================================================================================
+// GLOBAL FUNCTIONS
+//==================================================================================================
 
-semaphoreType CurrentSize;
-semaphoreType RoomLeft;
-semaphoreType FIFOmutex;
+void Fifo_Init(fifoType *fifo) {
 
-void OS_Fifo_Init(void) {
-	GetPt = &Fifo[0];
-	PutPt = &Fifo[0];
+	fifo->get_pt = &fifo->data[0];
+	fifo->put_pt = &fifo->data[0];
 
-	OS_InitSemaphore(&CurrentSize, 0);
-	OS_InitSemaphore(&RoomLeft, FIFOSIZE);
-	OS_InitSemaphore(&FIFOmutex, 1);
+	OS_InitSemaphore(&(fifo->current_size), 0);
+	OS_InitSemaphore(&(fifo->room_left), FIFOSIZE);
+	OS_InitSemaphore(&(fifo->mutex), 1);
+
 }
 
-void OS_Fifo_Put(int32_t data) {
-	OS_Wait(&RoomLeft);
-	OS_Wait(&FIFOmutex);
+void Fifo_Put(fifoType *fifo, int32_t data) {
 
-	*PutPt = data;
-	PutPt++;
+	OS_Wait(&(fifo->room_left));	/* Block if FIFO is full */
+	OS_Wait(&(fifo->mutex));		/* Enter critical section */
 
-	if (PutPt == &Fifo[FIFOSIZE]) {
-		PutPt = &Fifo[0];
+	*(fifo->put_pt) = data;
+	fifo->put_pt++;
+
+	/* Wrap around pointer if at end of buffer */
+	if (fifo->put_pt == &(fifo->data[FIFOSIZE])) {
+		fifo->put_pt = &(fifo->data[0]);
 	}
 
-	OS_Signal(&FIFOmutex);
-	OS_Signal(&CurrentSize);
+	OS_Signal(&(fifo->mutex));			/* Leave critical section */
+	OS_Signal(&(fifo->current_size));	/* Notify that data is available */
+
 }
 
-int32_t OS_Fifo_Get(void) {
-	OS_Wait(&CurrentSize);
-	OS_Wait(&FIFOmutex);
+int32_t Fifo_Get(fifoType *fifo) {
 
-	int32_t data = *GetPt;
-	GetPt++;
+	OS_Wait(&(fifo->current_size));		/* Block if FIFO is empty */
+	OS_Wait(&(fifo->mutex));			/* Enter critical section */
 
-	if (GetPt == &Fifo[FIFOSIZE]) {
-		GetPt = &Fifo[0];
+	int32_t data = *(fifo->get_pt);
+	fifo->get_pt++;
+
+	/* Wrap around pointer if at end of buffer */
+	if (fifo->get_pt == &(fifo->data[FIFOSIZE])) {
+		fifo->get_pt = &(fifo->data[0]);
 	}
 
-	OS_Signal(&FIFOmutex);
-	OS_Signal(&RoomLeft);
+	OS_Signal(&(fifo->mutex));		/* Leave critical section */
+	OS_Signal(&(fifo->room_left));	/* Notify that room is available */
 
 	return data;
 }
