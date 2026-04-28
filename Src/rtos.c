@@ -166,28 +166,34 @@ void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
 	s->BlockedListTail = NULL;
 }
 
+/*
+ * Decrements semaphore; if < 0, moves the current thread from the
+ * circular Ready List to the semaphore's FIFO Blocked Queue and yields.
+ */
 void OS_Wait(semaphoreType *s) {
 	uint32_t status = StartCritical();
 
 	s->value--;
 
-	// Move to blocked list
+	/* If value is negative, the resource is held by another thread */
 	if (s->value < 0) {
 
-		// Remove from the Ready Linked List
+		/* Remove TCB from the Ready Linked List */
 		RunPt->prev->next = RunPt->next;
 		RunPt->next->prev = RunPt->prev;
+
+		/* Update the global entry point to the Ready List */
 		ReadyListHead = RunPt->next;
 
-		// Append to Blocked Queue
-		if (s->BlockedListTail == NULL) { // Queue is empty
+		/* Append to Blocked Queue */
+		if (s->BlockedListTail == NULL) { /* Queue is empty */
 
 			s->BlockedListHead = RunPt;
 			s->BlockedListTail = RunPt;
 			s->BlockedListHead->next = NULL;
 			s->BlockedListHead->prev = NULL;
 
-		} else { // Queue is not empty
+		} else { 	/* Queue has threads—attach RunPt to the Tail */
 
 			s->BlockedListTail->next = RunPt;
 			RunPt->prev = s->BlockedListTail;
@@ -204,16 +210,22 @@ void OS_Wait(semaphoreType *s) {
 
 }
 
+/*
+ * Increments the semaphore and moves the highest-priority blocked thread
+ * from the semaphore's FIFO queue back into the circular Ready List.
+ */
 void OS_Signal(semaphoreType *s) {
 	uint32_t status = StartCritical();
 
 	s->value++;
 
-	// Wake up blocked thread
+	/* If value is still <= 0, threads are blocked and one must be woken up */
 	if (s->value <= 0) {
+		/* Pop the head of the blocked FIFO queue */
 		tcbType *p = s->BlockedListHead;
 		s->BlockedListHead = s->BlockedListHead->next;
 
+		/* Re-insert the thread into the circular Ready List after the current head */
 		p->next = ReadyListHead;
 		p->prev = ReadyListHead->prev;
 
@@ -222,6 +234,7 @@ void OS_Signal(semaphoreType *s) {
 
 		ReadyListHead = p;
 
+		/* Maintain queue integrity if it becomes empty */
 		if (s->BlockedListHead == NULL) {
 			s->BlockedListTail = NULL;
 		}
@@ -230,22 +243,34 @@ void OS_Signal(semaphoreType *s) {
 	EndCritical(status);
 }
 
+/*
+ * Manually triggers a context switch by clearing the SysTick counter
+ * and setting the PendSV interrupt bit in the Interrupt Control State Register.
+ */
 void OS_Suspend(void) {
-	SysTick->VAL = 0; // Clear Count
-	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk; // Trigger PendSV (Context Switch)
+	/* Resets the timer count to start a fresh time slice for the next thread */
+	SysTick->VAL = 0;
+
+	/* Request PendSV exception to trigger the assembly-level context switch */
+	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
 }
 
+/*
+ * Blocks the current thread for a specified time using a Delta-encoded list.
+ * Removes the thread from the Ready List and inserts it into SleepListHead.
+ */
 void OS_Sleep(int32_t time_ms) {
 
 	uint32_t status = StartCritical();
 
 	RunPt->sleep = time_ms;
-	// Remove tcb from ready_queue
 
+	/* Remove RunPt from the circular Ready List */
 	RunPt->prev->next = RunPt->next;
 	RunPt->next->prev = RunPt->prev;
 	ReadyListHead = RunPt->next;
 
+	/* Case 1: Sleep list is empty */
 	if (SleepListHead == NULL) {
 
 		SleepListHead = RunPt;
@@ -254,7 +279,7 @@ void OS_Sleep(int32_t time_ms) {
 
 	} else {
 
-		// Edge case: time_ms < SleepPt->sleep
+		/* Case 2: New thread should be the new head */
 		if (SleepListHead->sleep >= RunPt->sleep) {
 
 			SleepListHead->sleep -= RunPt->sleep;
@@ -264,6 +289,7 @@ void OS_Sleep(int32_t time_ms) {
 
 		} else {
 
+			/* Case 3: Traverse and insert while maintaining delta encoding */
 			tcbType *curr_node = SleepListHead;
 			tcbType *prev_node = NULL;
 
@@ -273,10 +299,12 @@ void OS_Sleep(int32_t time_ms) {
 				curr_node = curr_node->next;
 			}
 
+			/* Splice thread into the sleep queue */
 			prev_node->next = RunPt;
 			RunPt->next = curr_node;
 			RunPt->prev = NULL;
 
+			/* Update the delta for the following node, if it exists */
 			if (curr_node != NULL) {
 				curr_node->sleep -= RunPt->sleep;
 			}
@@ -290,13 +318,18 @@ void OS_Sleep(int32_t time_ms) {
 
 }
 
+/*
+ * Updates the sleep timers and determines the next thread to run.
+ * Runs inside the SysTick interrupt handler.
+ */
 void OS_Scheduler(void) {
 
-	// Decrement all sleeping threads
+	/* Update Sleep Queue: only the head needs to be decremented */
 	if (SleepListHead != NULL) {
 
 		SleepListHead->sleep--;
 
+		/* Wake all threads whose timers have expired (delta reached zero) */
 		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
 			tcbType *p = SleepListHead;
 			SleepListHead = SleepListHead->next;
@@ -312,7 +345,7 @@ void OS_Scheduler(void) {
 
 	}
 
-	// Transition to next thread;
+	/* Round-robin: Advance to the next ready thread */
 	RunPt = ReadyListHead;
 	ReadyListHead = RunPt->next;
 }
