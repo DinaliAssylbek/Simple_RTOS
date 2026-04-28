@@ -12,8 +12,13 @@
 
 #include <stdint.h>
 
-#define STACKSIZE 100	/* Number of 32-bit words in each TCB's stack */
-#define NUMTHREADS 4	/* Maximum number of threads the OS can manage */
+#define STACKSIZE 100		/* Number of 32-bit words in each TCB's stack */
+#define MAXNUMTHREADS 10	/* Maximum number of threads the OS can manage */
+
+typedef enum {
+    TAKEN = 0,
+    FREE  = 1
+} tcbState;
 
 /* Thread Control Block: Tracks thread state, stack, and list links */
 typedef struct tcb {
@@ -21,6 +26,7 @@ typedef struct tcb {
     int32_t sleep;      /* Remaining time slices for the thread to stay in sleep state */
     struct tcb *next;   /* Pointer to the next TCB in the circular ready or blocked list */
     struct tcb *prev;   /* Pointer to the previous TCB in the circular ready or blocked list */
+    tcbState status;
 } tcbType;
 
 /* Counting Semaphore: Manages synchronization and blocked thread queue */
@@ -36,13 +42,13 @@ typedef struct semaphore {
 
 void OS_Init(void);
 
-void OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void));
+void OS_AddThread_First(void(*task)(void));
+
+void OS_AddThread(void(*task0)(void));
 
 void OS_Launch(uint32_t theTimeSlice);
 
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue);
-
-void OS_Scheduler(void);
 
 void OS_Suspend(void);
 

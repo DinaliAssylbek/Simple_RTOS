@@ -1,7 +1,7 @@
 	.syntax unified
 	.thumb
 
-	.global StartOS
+	.global OS_Start
 	.global SysTick_Handler
 
 	.extern RunPt
@@ -10,10 +10,10 @@
 	.section .text
 
 // =====================
-// StartOS
+// OS_Start
 // =====================
-.type StartOS, %function
-StartOS:
+.type OS_Start, %function
+OS_Start:
 	LDR R0, =RunPt	 // Get Address of the RunPtr Pointer
 	LDR R1, [R0]	 // Get the Address of TCB (Pointing to the Stack Pointer)
 	LDR SP, [R1]	 // Load Stack Pointer value into SP

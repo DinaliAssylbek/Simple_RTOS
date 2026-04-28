@@ -5,25 +5,52 @@
  *      Author: dinaliassylbek
  */
 
+//==================================================================================================
+// INCLUDES
+//==================================================================================================
+
 #include "rtos.h"
 #include "bsp.h"
 #include "stm32f103xb.h"
 #include <stddef.h>
 
-static tcbType tcbs[NUMTHREADS];
-static int32_t Stacks[NUMTHREADS][STACKSIZE];
+//==================================================================================================
+// GLOBAL AND STATIC VARIABLES
+//==================================================================================================
+
+static tcbType tcbs[MAXNUMTHREADS];
+static int32_t Stacks[MAXNUMTHREADS][STACKSIZE];
 
 tcbType *RunPt;
 tcbType *SleepListHead;
 tcbType *ReadyListHead;
 
+//==================================================================================================
+// FUNCTION PROTOTYPES
+//==================================================================================================
 
+void OS_Scheduler(void);
 
+/*
+ * Sets up a thread's stack with dummy values so it can be "restored" the first time it runs.
+ */
 static void SetInitialStack(int i);
 
-extern void StartOS(void);
+/*
+ * Low-power background task that runs only when no other threads are ready.
+ */
+static void IdleTask(void);
 
-void SetInitialStack(int i) {
+/*
+ * Assembly function that triggers the hardware to launch the first thread and start the OS.
+ */
+extern void OS_Start(void);
+
+//==================================================================================================
+// IMPLEMENTATION
+//==================================================================================================
+
+static void SetInitialStack(int i) {
 	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
 	Stacks[i][STACKSIZE - 1] = 0x01000000; 		// Thumb bit (PSR)
 	Stacks[i][STACKSIZE - 3] = 0x10101010; 		// Link Register (R14)
@@ -42,43 +69,36 @@ void SetInitialStack(int i) {
 	Stacks[i][STACKSIZE - 16] = 0x41414141;		// R4
 }
 
-void IdleTask(void) {
+static void IdleTask(void) {
 	while (1) {
-		// This assembly instruction puts the processor in a low-power state
-		__asm volatile ("wfi");
+		__asm volatile ("wfi"); /* assembly instruction puts the processor in a low-power state */
 	}
 }
 
-void OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
+void OS_AddThread(void(*task)(void)) {
 
 	uint32_t state = StartCritical();
 
 	// Create a linked List of tcbs
-	tcbs[0].next = &tcbs[1];
-	tcbs[1].next = &tcbs[2];
-	tcbs[2].next = &tcbs[3];
-	tcbs[3].next = &tcbs[0];
+	uint32_t new_tcb_idx;
+	for (new_tcb_idx = 0; new_tcb_idx < MAXNUMTHREADS; new_tcb_idx++)
+	{
+		if (tcbs[new_tcb_idx].status == FREE)
+			break;
+	}
 
-	tcbs[0].prev = &tcbs[3];
-	tcbs[1].prev = &tcbs[0];
-	tcbs[2].prev = &tcbs[1];
-	tcbs[3].prev = &tcbs[2];
+	if (new_tcb_idx == MAXNUMTHREADS) {
+		return;
+	}
 
-	// Initialize stacks for each thread
-	SetInitialStack(0);
-	SetInitialStack(1);
-	SetInitialStack(2);
-	SetInitialStack(3);
+	tcbs[new_tcb_idx].next = RunPt->next;
+	tcbs[new_tcb_idx].prev = RunPt;
+	RunPt->next->prev = &(tcbs[new_tcb_idx]);
+	RunPt->next = &(tcbs[new_tcb_idx]);
+	tcbs[new_tcb_idx].status = TAKEN;
 
-	// Point PC register to the functions that they should run
-	Stacks[0][STACKSIZE - 2] = (int32_t)(task0);
-	Stacks[1][STACKSIZE - 2] = (int32_t)(task1);
-	Stacks[2][STACKSIZE - 2] = (int32_t)(task2);
-	Stacks[3][STACKSIZE - 2] = (int32_t)(&IdleTask);
-
-	// First thread to run is tcb[0]
-	RunPt = &tcbs[0];
-	ReadyListHead = &tcbs[1];
+	SetInitialStack(new_tcb_idx);
+	Stacks[new_tcb_idx][STACKSIZE - 2] = (int32_t)(task);
 
 	EndCritical(state);
 
@@ -87,6 +107,22 @@ void OS_AddThreads(void(*task0)(void), void(*task1)(void), void(*task2)(void)) {
 void OS_Init(void) {
 	StartCritical();	// Start Critical
 	BSP_Clock_Init();  // Enable System Clock
+
+	// Ensure all slots are explicitly marked FREE before we start
+	for(int i = 0; i < MAXNUMTHREADS; i++) {
+		tcbs[i].status = FREE;
+	}
+
+	tcbs[0].next = &tcbs[0];
+	tcbs[0].prev = &tcbs[0];
+	tcbs[0].sleep = 0;
+	tcbs[0].status = TAKEN;
+
+	RunPt = &tcbs[0];
+
+	SetInitialStack(0);
+	Stacks[0][STACKSIZE - 2] = (int32_t)(&IdleTask);
+
 }
 
 void OS_Launch(uint32_t theTimeSlice) {
@@ -95,7 +131,7 @@ void OS_Launch(uint32_t theTimeSlice) {
 	NVIC_SetPriority(SysTick_IRQn, 0x0F); // Set to lowest priority
 	SysTick->LOAD = (theTimeSlice - 1);// Set what count it should go up to
 	SysTick->CTRL |= 0x7; // 0x07 = Enable + TickInt + ClickSource
-	StartOS();
+	OS_Start();
 }
 
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
