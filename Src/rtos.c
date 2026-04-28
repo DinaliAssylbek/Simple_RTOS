@@ -50,6 +50,12 @@ extern void OS_Start(void);
 // IMPLEMENTATION
 //==================================================================================================
 
+static void IdleTask(void) {
+	while (1) {
+		__asm volatile ("wfi"); /* assembly instruction puts the processor in a low-power state */
+	}
+}
+
 static void SetInitialStack(int i) {
 	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
 	Stacks[i][STACKSIZE - 1] = 0x01000000; 		// Thumb bit (PSR)
@@ -69,17 +75,15 @@ static void SetInitialStack(int i) {
 	Stacks[i][STACKSIZE - 16] = 0x41414141;		// R4
 }
 
-static void IdleTask(void) {
-	while (1) {
-		__asm volatile ("wfi"); /* assembly instruction puts the processor in a low-power state */
-	}
-}
-
+/*
+ * Dynamically allocates a TCB slot and splices the new task into
+ * the active circular linked list for round-robin scheduling.
+ */
 void OS_AddThread(void(*task)(void)) {
 
 	uint32_t state = StartCritical();
 
-	// Create a linked List of tcbs
+	/* Search for the first available slot in the TCB array */
 	uint32_t new_tcb_idx;
 	for (new_tcb_idx = 0; new_tcb_idx < MAXNUMTHREADS; new_tcb_idx++)
 	{
@@ -87,16 +91,21 @@ void OS_AddThread(void(*task)(void)) {
 			break;
 	}
 
+	/* Exit if no free TCB slots are available */
 	if (new_tcb_idx == MAXNUMTHREADS) {
+		EndCritical(state);
 		return;
 	}
 
+	/* Splice the new TCB into the circular linked list after the current running thread */
 	tcbs[new_tcb_idx].next = RunPt->next;
 	tcbs[new_tcb_idx].prev = RunPt;
 	RunPt->next->prev = &(tcbs[new_tcb_idx]);
 	RunPt->next = &(tcbs[new_tcb_idx]);
-	tcbs[new_tcb_idx].status = TAKEN;
 
+	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
+
+	/* Initialize hardware context and set the entry point for the task */
 	SetInitialStack(new_tcb_idx);
 	Stacks[new_tcb_idx][STACKSIZE - 2] = (int32_t)(task);
 
@@ -104,36 +113,53 @@ void OS_AddThread(void(*task)(void)) {
 
 }
 
+/*
+ * Initializes the hardware clock, clears the TCB table, and seeds the
+ * circular linked list with the background IdleTask.
+ */
 void OS_Init(void) {
-	StartCritical();	// Start Critical
-	BSP_Clock_Init();  // Enable System Clock
 
-	// Ensure all slots are explicitly marked FREE before we start
+	StartCritical();
+
+	BSP_Clock_Init();
+
+	/* Reset all TCB statuses to ensure a clean slate for dynamic allocation */
 	for(int i = 0; i < MAXNUMTHREADS; i++) {
 		tcbs[i].status = FREE;
 	}
 
+	/* Initialize IdleTask (TCB 0) as the anchor for the circular list */
 	tcbs[0].next = &tcbs[0];
 	tcbs[0].prev = &tcbs[0];
 	tcbs[0].sleep = 0;
 	tcbs[0].status = TAKEN;
 
+	/* Set the starting point for the scheduler and AddThread handshake */
 	RunPt = &tcbs[0];
 
+	/* Set up the initial stack frame for the IdleTask */
 	SetInitialStack(0);
 	Stacks[0][STACKSIZE - 2] = (int32_t)(&IdleTask);
 
 }
 
+/*
+ * Configures the SysTick timer for the desired time slice and triggers
+ * the assembly-level routine to start the first thread.
+ */
 void OS_Launch(uint32_t theTimeSlice) {
-	SysTick->CTRL = 0; // Disable SysTick
-	SysTick->VAL = 0; // Clear Count
-	NVIC_SetPriority(SysTick_IRQn, 0x0F); // Set to lowest priority
-	SysTick->LOAD = (theTimeSlice - 1);// Set what count it should go up to
-	SysTick->CTRL |= 0x7; // 0x07 = Enable + TickInt + ClickSource
+	SysTick->CTRL = 0; 						/* Disable SysTick */
+	SysTick->VAL = 0; 						/* Clear Count */
+	NVIC_SetPriority(SysTick_IRQn, 0x0F); 	/* Set to lowest priority */
+	SysTick->LOAD = (theTimeSlice - 1); 	/* Set what count it should go up to */
+	SysTick->CTRL |= 0x7; 					/* 0x07 = Enable + TickInt + ClickSource */
 	OS_Start();
 }
 
+/*
+ * Initializes a semaphore counter and sets up an empty queue for
+ * any threads that will eventually block on this resource.
+ */
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
 	s->value = initialValue;
 	s->BlockedListHead = NULL;

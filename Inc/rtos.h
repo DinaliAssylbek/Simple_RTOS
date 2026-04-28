@@ -16,8 +16,8 @@
 #define MAXNUMTHREADS 10	/* Maximum number of threads the OS can manage */
 
 typedef enum {
-    TAKEN = 0,
-    FREE  = 1
+    FREE = 0,
+    TAKEN  = 1
 } tcbState;
 
 /* Thread Control Block: Tracks thread state, stack, and list links */
@@ -41,8 +41,6 @@ typedef struct semaphore {
  */
 
 void OS_Init(void);
-
-void OS_AddThread_First(void(*task)(void));
 
 void OS_AddThread(void(*task0)(void));
 
