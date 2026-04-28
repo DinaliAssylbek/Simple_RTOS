@@ -6,7 +6,7 @@
  */
 
 #include "rtos.h"
-#include "interrupts.h"
+#include "bsp.h"
 #include "stm32f103xb.h"
 #include <stddef.h>
 
