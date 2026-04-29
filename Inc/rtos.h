@@ -44,6 +44,8 @@ void OS_Init(void);
 
 void OS_AddThread(void(*task0)(void));
 
+void OS_KillThread(void);
+
 void OS_Launch(uint32_t theTimeSlice);
 
 void OS_InitSemaphore(semaphoreType *s, int32_t initialValue);

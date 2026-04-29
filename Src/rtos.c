@@ -114,6 +114,32 @@ void OS_AddThread(void(*task)(void)) {
 }
 
 /*
+ * Permanently removes the current thread from the Ready List,
+ * marks its TCB as FREE for future use, and yields the CPU.
+ */
+void OS_KillThread(void) {
+
+	uint32_t state = StartCritical();
+
+	/* Link neighbors to each other, skipping the current thread */
+	tcbType *prevTCB = RunPt->prev;
+	tcbType *nextTCB = RunPt->next;
+
+	prevTCB->next = nextTCB;
+	nextTCB->prev = prevTCB;
+
+	ReadyListHead = RunPt->next;
+
+	/* Mark slot as FREE so it can be reused by OS_AddThread */
+	RunPt->status = FREE;
+
+	/* Force an immediate context switch to a living thread */
+	OS_Suspend();
+
+	EndCritical(state);
+}
+
+/*
  * Initializes the hardware clock, clears the TCB table, and seeds the
  * circular linked list with the background IdleTask.
  */
