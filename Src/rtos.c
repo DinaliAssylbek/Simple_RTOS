@@ -34,12 +34,22 @@ void OS_Scheduler(void);
 /*
  * Sets up a thread's stack with dummy values so it can be "restored" the first time it runs.
  */
-static void SetInitialStack(int i);
+static void setInitialStack(int i);
 
 /*
  * Low-power background task that runs only when no other threads are ready.
  */
-static void IdleTask(void);
+static void idleTask(void);
+
+/*
+ * Unlinks a TCB from its current circular list and updates the anchor
+ */
+static void unlink_ready(tcbType *p);
+
+/*
+ * Inserts a TCB into the circular ready list before the current Head
+ */
+static void link_ready(tcbType *p);
 
 /*
  * Assembly function that triggers the hardware to launch the first thread and start the OS.
@@ -50,13 +60,27 @@ extern void OS_Start(void);
 // IMPLEMENTATION
 //==================================================================================================
 
-static void IdleTask(void) {
+static void idleTask(void) {
 	while (1) {
 		__asm volatile ("wfi"); /* assembly instruction puts the processor in a low-power state */
 	}
 }
 
-static void SetInitialStack(int i) {
+static void unlink_ready(tcbType *p) {
+    p->prev->next = p->next;
+    p->next->prev = p->prev;
+    ReadyListHead = p->next;
+}
+
+static void link_ready(tcbType *p) {
+    p->next = ReadyListHead;
+    p->prev = ReadyListHead->prev;
+    p->prev->next = p;
+    p->next->prev = p;
+    ReadyListHead = p;
+}
+
+static void setInitialStack(int i) {
 	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
 	Stacks[i][STACKSIZE - 1] = 0x01000000; 		// Thumb bit (PSR)
 	Stacks[i][STACKSIZE - 3] = 0x10101010; 		// Link Register (R14)
@@ -97,16 +121,12 @@ void OS_AddThread(void(*task)(void)) {
 		return;
 	}
 
-	/* Splice the new TCB into the circular linked list after the current running thread */
-	tcbs[new_tcb_idx].next = RunPt->next;
-	tcbs[new_tcb_idx].prev = RunPt;
-	RunPt->next->prev = &(tcbs[new_tcb_idx]);
-	RunPt->next = &(tcbs[new_tcb_idx]);
-
+	/* Centralized insertion logic */
+	link_ready(&(tcbs[new_tcb_idx]));
 	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
 
 	/* Initialize hardware context and set the entry point for the task */
-	SetInitialStack(new_tcb_idx);
+	setInitialStack(new_tcb_idx);
 	Stacks[new_tcb_idx][STACKSIZE - 2] = (int32_t)(task);
 
 	EndCritical(state);
@@ -121,16 +141,7 @@ void OS_KillThread(void) {
 
 	uint32_t state = StartCritical();
 
-	/* Link neighbors to each other, skipping the current thread */
-	tcbType *prevTCB = RunPt->prev;
-	tcbType *nextTCB = RunPt->next;
-
-	prevTCB->next = nextTCB;
-	nextTCB->prev = prevTCB;
-
-	ReadyListHead = RunPt->next;
-
-	/* Mark slot as FREE so it can be reused by OS_AddThread */
+	unlink_ready(RunPt);
 	RunPt->status = FREE;
 
 	/* Force an immediate context switch to a living thread */
@@ -164,8 +175,8 @@ void OS_Init(void) {
 	RunPt = &tcbs[0];
 
 	/* Set up the initial stack frame for the IdleTask */
-	SetInitialStack(0);
-	Stacks[0][STACKSIZE - 2] = (int32_t)(&IdleTask);
+	setInitialStack(0);
+	Stacks[0][STACKSIZE - 2] = (int32_t)(&idleTask);
 
 }
 
@@ -204,12 +215,7 @@ void OS_Wait(semaphoreType *s) {
 	/* If value is negative, the resource is held by another thread */
 	if (s->value < 0) {
 
-		/* Remove TCB from the Ready Linked List */
-		RunPt->prev->next = RunPt->next;
-		RunPt->next->prev = RunPt->prev;
-
-		/* Update the global entry point to the Ready List */
-		ReadyListHead = RunPt->next;
+		unlink_ready(RunPt);
 
 		/* Append to Blocked Queue */
 		if (s->BlockedListTail == NULL) { /* Queue is empty */
@@ -250,15 +256,7 @@ void OS_Signal(semaphoreType *s) {
 		/* Pop the head of the blocked FIFO queue */
 		tcbType *p = s->BlockedListHead;
 		s->BlockedListHead = s->BlockedListHead->next;
-
-		/* Re-insert the thread into the circular Ready List after the current head */
-		p->next = ReadyListHead;
-		p->prev = ReadyListHead->prev;
-
-		p->prev->next = p;
-		p->next->prev = p;
-
-		ReadyListHead = p;
+		link_ready(p);
 
 		/* Maintain queue integrity if it becomes empty */
 		if (s->BlockedListHead == NULL) {
@@ -291,10 +289,7 @@ void OS_Sleep(int32_t time_ms) {
 
 	RunPt->sleep = time_ms;
 
-	/* Remove RunPt from the circular Ready List */
-	RunPt->prev->next = RunPt->next;
-	RunPt->next->prev = RunPt->prev;
-	ReadyListHead = RunPt->next;
+	unlink_ready(RunPt);
 
 	/* Case 1: Sleep list is empty */
 	if (SleepListHead == NULL) {
@@ -359,14 +354,7 @@ void OS_Scheduler(void) {
 		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
 			tcbType *p = SleepListHead;
 			SleepListHead = SleepListHead->next;
-
-			p->next = ReadyListHead;
-			p->prev = ReadyListHead->prev;
-
-			p->prev->next = p;
-			p->next->prev = p;
-
-			ReadyListHead = p;
+			link_ready(p);
 		}
 
 	}
