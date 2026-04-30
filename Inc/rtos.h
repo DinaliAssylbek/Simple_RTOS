@@ -26,6 +26,7 @@ typedef struct tcb {
     int32_t sleep;      /* Remaining time slices for the thread to stay in sleep state */
     struct tcb *next;   /* Pointer to the next TCB in the circular ready or blocked list */
     struct tcb *prev;   /* Pointer to the previous TCB in the circular ready or blocked list */
+    uint8_t priority;
     tcbState status;
 } tcbType;
 
@@ -42,7 +43,7 @@ typedef struct semaphore {
 
 void OS_Init(void);
 
-void OS_AddThread(void(*task0)(void));
+void OS_AddThread(void(*task0)(void), uint8_t priority);
 
 void OS_KillThread(void);
 

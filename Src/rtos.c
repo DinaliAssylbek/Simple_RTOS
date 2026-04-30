@@ -23,7 +23,6 @@ static int32_t Stacks[MAXNUMTHREADS][STACKSIZE];
 
 tcbType *RunPt;
 tcbType *SleepListHead;
-tcbType *ReadyListHead;
 
 //==================================================================================================
 // FUNCTION PROTOTYPES
@@ -69,15 +68,17 @@ static void idleTask(void) {
 static void unlink_ready(tcbType *p) {
     p->prev->next = p->next;
     p->next->prev = p->prev;
-    ReadyListHead = p->next;
+
+    if (RunPt == p) {
+		RunPt = p->next;
+	}
 }
 
 static void link_ready(tcbType *p) {
-    p->next = ReadyListHead;
-    p->prev = ReadyListHead->prev;
-    p->prev->next = p;
-    p->next->prev = p;
-    ReadyListHead = p;
+	p->next = RunPt->next;
+	p->prev = RunPt;
+	RunPt->next->prev = p;
+	RunPt->next = p;
 }
 
 static void setInitialStack(int i) {
@@ -103,7 +104,7 @@ static void setInitialStack(int i) {
  * Dynamically allocates a TCB slot and splices the new task into
  * the active circular linked list for round-robin scheduling.
  */
-void OS_AddThread(void(*task)(void)) {
+void OS_AddThread(void(*task)(void), uint8_t priority) {
 
 	uint32_t state = StartCritical();
 
@@ -124,6 +125,7 @@ void OS_AddThread(void(*task)(void)) {
 	/* Centralized insertion logic */
 	link_ready(&(tcbs[new_tcb_idx]));
 	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
+	tcbs[new_tcb_idx].priority = priority;
 
 	/* Initialize hardware context and set the entry point for the task */
 	setInitialStack(new_tcb_idx);
@@ -170,6 +172,7 @@ void OS_Init(void) {
 	tcbs[0].prev = &tcbs[0];
 	tcbs[0].sleep = 0;
 	tcbs[0].status = TAKEN;
+	tcbs[0].priority = 255;
 
 	/* Set the starting point for the scheduler and AddThread handshake */
 	RunPt = &tcbs[0];
@@ -359,7 +362,24 @@ void OS_Scheduler(void) {
 
 	}
 
+	tcbType *next_pt = RunPt->next;
+	tcbType *iterating_pt = next_pt;
+
+	/* Search for highest priority thread not sleeping or blocked */
+	uint32_t max_priority = 256;
+	tcbType *best_pt = next_pt;
+
+	do
+	{
+		if (iterating_pt->priority < max_priority)
+		{
+			best_pt = iterating_pt;
+			max_priority = best_pt->priority;
+		}
+		iterating_pt = iterating_pt->next;
+	} while (iterating_pt != next_pt);
+
 	/* Round-robin: Advance to the next ready thread */
-	RunPt = ReadyListHead;
-	ReadyListHead = RunPt->next;
+	RunPt = best_pt;
+
 }
