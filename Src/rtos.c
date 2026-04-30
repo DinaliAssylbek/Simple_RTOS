@@ -123,9 +123,9 @@ void OS_AddThread(void(*task)(void), uint8_t priority) {
 	}
 
 	/* Centralized insertion logic */
-	link_ready(&(tcbs[new_tcb_idx]));
-	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
 	tcbs[new_tcb_idx].priority = priority;
+	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
+	link_ready(&(tcbs[new_tcb_idx]));
 
 	/* Initialize hardware context and set the entry point for the task */
 	setInitialStack(new_tcb_idx);
