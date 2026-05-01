@@ -14,9 +14,9 @@
 int main(void)
 {
 	OS_Init();
-	OS_AddThread(&task0, 1);
-	OS_AddThread(&task1, 2);
-	OS_AddThread(&task2, 3);
+	OS_AddThread(&Task0, 1);
+	OS_AddThread(&Task1, 2);
+	OS_AddThread(&Task2, 3);
 	OS_Launch(8000); // Switch every 1ms
 	return 0;
 }

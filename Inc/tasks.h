@@ -1,16 +1,22 @@
 /*
  * tasks.h
  *
- *  Created on: Apr 29, 2026
- *      Author: dinaliassylbek
+ * Thread entry point declarations for the RTOS application.
+ * All tasks follow the 'void TaskName(void)' signature.
+ *
+ * Author: Dinali Assylbek
  */
 
 #ifndef TASKS_H_
 #define TASKS_H_
 
-void task0(void);
-void task1(void);
-void task2(void);
-void task3(void);
+/**
+ * Function descriptions are provided in rtos.c
+ */
+
+void Task0(void);
+void Task1(void);
+void Task2(void);
+void Task3(void);
 
 #endif /* TASKS_H_ */
