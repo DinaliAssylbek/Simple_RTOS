@@ -72,6 +72,9 @@ static void unlink_ready(tcbType *p) {
     if (RunPt == p) {
 		RunPt = p->next;
 	}
+
+    p->next = NULL;
+    p->prev = NULL;
 }
 
 static void link_ready(tcbType *p) {
@@ -117,19 +120,17 @@ void OS_AddThread(void(*task)(void), uint8_t priority) {
 	}
 
 	/* Exit if no free TCB slots are available */
-	if (new_tcb_idx == MAXNUMTHREADS) {
-		EndCritical(state);
-		return;
-	}
+	assert_or_panic(new_tcb_idx != MAXNUMTHREADS);
 
 	/* Centralized insertion logic */
 	tcbs[new_tcb_idx].priority = priority;
 	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
-	link_ready(&(tcbs[new_tcb_idx]));
 
 	/* Initialize hardware context and set the entry point for the task */
 	setInitialStack(new_tcb_idx);
 	Stacks[new_tcb_idx][STACKSIZE - 2] = (int32_t)(task);
+
+	link_ready(&(tcbs[new_tcb_idx]));
 
 	EndCritical(state);
 
@@ -143,13 +144,19 @@ void OS_KillThread(void) {
 
 	uint32_t state = StartCritical();
 
-	unlink_ready(RunPt);
-	RunPt->status = FREE;
+	tcbType *dead = RunPt;
+	if (dead == &tcbs[0]) {
+	    panic(); // Can't remove idle task
+	}
+
+	unlink_ready(dead);
+	dead->status = FREE;
 
 	/* Force an immediate context switch to a living thread */
 	OS_Suspend();
 
 	EndCritical(state);
+
 }
 
 /*
@@ -172,14 +179,16 @@ void OS_Init(void) {
 	tcbs[0].prev = &tcbs[0];
 	tcbs[0].sleep = 0;
 	tcbs[0].status = TAKEN;
-	tcbs[0].priority = 255;
-
-	/* Set the starting point for the scheduler and AddThread handshake */
-	RunPt = &tcbs[0];
+	tcbs[0].priority = UINT8_MAX;
 
 	/* Set up the initial stack frame for the IdleTask */
 	setInitialStack(0);
 	Stacks[0][STACKSIZE - 2] = (int32_t)(&idleTask);
+
+	/* Set the starting point for the scheduler and AddThread handshake */
+	RunPt = &tcbs[0];
+
+	SleepListHead = NULL;
 
 }
 
@@ -218,22 +227,23 @@ void OS_Wait(semaphoreType *s) {
 	/* If value is negative, the resource is held by another thread */
 	if (s->value < 0) {
 
+		tcbType *curr = RunPt;
 		unlink_ready(RunPt);
 
 		/* Append to Blocked Queue */
 		if (s->BlockedListTail == NULL) { /* Queue is empty */
 
-			s->BlockedListHead = RunPt;
-			s->BlockedListTail = RunPt;
+			s->BlockedListHead = curr;
+			s->BlockedListTail = curr;
 			s->BlockedListHead->next = NULL;
 			s->BlockedListHead->prev = NULL;
 
 		} else { 	/* Queue has threads—attach RunPt to the Tail */
 
-			s->BlockedListTail->next = RunPt;
-			RunPt->prev = s->BlockedListTail;
-			RunPt->next = NULL;
-			s->BlockedListTail = RunPt;
+			s->BlockedListTail->next = curr;
+			curr->prev = s->BlockedListTail;
+			curr->next = NULL;
+			s->BlockedListTail = curr;
 
 		}
 
@@ -264,6 +274,8 @@ void OS_Signal(semaphoreType *s) {
 		/* Maintain queue integrity if it becomes empty */
 		if (s->BlockedListHead == NULL) {
 			s->BlockedListTail = NULL;
+		} else {
+			s->BlockedListHead->prev = NULL;
 		}
 	}
 
@@ -292,24 +304,26 @@ void OS_Sleep(int32_t time_ms) {
 
 	RunPt->sleep = time_ms;
 
+	tcbType *curr = RunPt;
 	unlink_ready(RunPt);
 
 	/* Case 1: Sleep list is empty */
 	if (SleepListHead == NULL) {
 
-		SleepListHead = RunPt;
+		SleepListHead = curr;
 		SleepListHead->next = NULL;
 		SleepListHead->prev = NULL;
 
 	} else {
 
 		/* Case 2: New thread should be the new head */
-		if (SleepListHead->sleep >= RunPt->sleep) {
+		if (SleepListHead->sleep >= curr->sleep) {
 
-			SleepListHead->sleep -= RunPt->sleep;
-			RunPt->next = SleepListHead;
-			RunPt->prev = NULL;
-			SleepListHead = RunPt;
+			SleepListHead->sleep -= curr->sleep;
+			curr->next = SleepListHead;
+			SleepListHead->prev = curr;
+			curr->prev = NULL;
+			SleepListHead = curr;
 
 		} else {
 
@@ -317,20 +331,21 @@ void OS_Sleep(int32_t time_ms) {
 			tcbType *curr_node = SleepListHead;
 			tcbType *prev_node = NULL;
 
-			while (curr_node != NULL && curr_node->sleep < RunPt->sleep) {
-				RunPt->sleep -= curr_node->sleep;
+			while (curr_node != NULL && curr_node->sleep < curr->sleep) {
+				curr->sleep -= curr_node->sleep;
 				prev_node = curr_node;
 				curr_node = curr_node->next;
 			}
 
 			/* Splice thread into the sleep queue */
-			prev_node->next = RunPt;
-			RunPt->next = curr_node;
-			RunPt->prev = NULL;
+			prev_node->next = curr;
+			curr->next = curr_node;
+			curr->prev = prev_node;
 
 			/* Update the delta for the following node, if it exists */
 			if (curr_node != NULL) {
-				curr_node->sleep -= RunPt->sleep;
+				curr_node->prev = curr;
+				curr_node->sleep -= curr->sleep;
 			}
 
 		}
@@ -357,6 +372,11 @@ void OS_Scheduler(void) {
 		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
 			tcbType *p = SleepListHead;
 			SleepListHead = SleepListHead->next;
+
+			if (SleepListHead != NULL) {
+				SleepListHead->prev = NULL;
+			}
+
 			link_ready(p);
 		}
 
@@ -366,7 +386,7 @@ void OS_Scheduler(void) {
 	tcbType *iterating_pt = next_pt;
 
 	/* Search for highest priority thread not sleeping or blocked */
-	uint32_t max_priority = 256;
+	uint32_t max_priority = UINT8_MAX + 1;
 	tcbType *best_pt = next_pt;
 
 	do
@@ -379,7 +399,7 @@ void OS_Scheduler(void) {
 		iterating_pt = iterating_pt->next;
 	} while (iterating_pt != next_pt);
 
-	/* Round-robin: Advance to the next ready thread */
+
 	RunPt = best_pt;
 
 }

@@ -59,4 +59,14 @@ void OS_Wait(semaphoreType *s);
 
 void OS_Signal(semaphoreType *s);
 
+
+
+
+/**
+ * The panic fn is implemented by the caller.
+ */
+void panic(void);
+
+#define assert_or_panic(expr) ((expr) ? (void)0U : panic())
+
 #endif /* RTOS_H_ */

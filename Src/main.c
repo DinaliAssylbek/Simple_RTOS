@@ -7,6 +7,7 @@
  */
 
 #include <stdint.h>
+
 #include "stm32f103xb.h"
 #include "tasks.h"
 #include "rtos.h"
@@ -19,4 +20,8 @@ int main(void)
 	OS_AddThread(&Task2, 3);
 	OS_Launch(8000); // Switch every 1ms
 	return 0;
+}
+
+void panic() {
+
 }
