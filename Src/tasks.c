@@ -22,7 +22,7 @@ void Task0(void) {
 	while (1) {
 
 		Profile_Toggle(&PROF_PA5);
-		OS_Sleep(60);
+		HAL_Delay(60);
 		count++;
 
 		if (count == 100) {
@@ -46,7 +46,7 @@ void Task1(void) {
 
 		for (int i = 0; i < 12; i++) {
 			Profile_Toggle(&PROF_PB2);
-			OS_Sleep(50);
+			HAL_Delay(50);
 		}
 
 		OS_Suspend();
@@ -68,7 +68,7 @@ void Task2(void) {
 		if (count % 35 == 0) {
 			OS_Sleep(4500);
 		} else {
-			OS_Sleep(70);
+			HAL_Delay(70);
 		}
 
 	}
@@ -82,7 +82,7 @@ void Task3(void) {
 	while (1) {
 
 		Profile_Toggle(&PROF_PB13);
-		OS_Sleep(60);
+		HAL_Delay(60);
 
 	}
 
