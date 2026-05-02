@@ -11,6 +11,7 @@
 
 #include "rtos.h"
 #include "bsp.h"
+#include "timer.h"
 #include "stm32f103xb.h"
 #include <stddef.h>
 
@@ -167,7 +168,7 @@ void OS_Init(void) {
 
 	StartCritical();
 
-	BSP_Clock_Init();
+	OS_Timer_Init();
 
 	/* Reset all TCB statuses to ensure a clean slate for dynamic allocation */
 	for(int i = 0; i < MAXNUMTHREADS; i++) {
@@ -196,12 +197,8 @@ void OS_Init(void) {
  * Configures the SysTick timer for the desired time slice and triggers
  * the assembly-level routine to start the first thread.
  */
-void OS_Launch(uint32_t theTimeSlice) {
-	SysTick->CTRL = 0; 						/* Disable SysTick */
-	SysTick->VAL = 0; 						/* Clear Count */
-	NVIC_SetPriority(SysTick_IRQn, 0x0F); 	/* Set to lowest priority */
-	SysTick->LOAD = (theTimeSlice - 1); 	/* Set what count it should go up to */
-	SysTick->CTRL |= 0x7; 					/* 0x07 = Enable + TickInt + ClickSource */
+void OS_Launch(void) {
+	OS_Timer_Start();
 	OS_Start();
 }
 
@@ -287,11 +284,7 @@ void OS_Signal(semaphoreType *s) {
  * and setting the PendSV interrupt bit in the Interrupt Control State Register.
  */
 void OS_Suspend(void) {
-	/* Resets the timer count to start a fresh time slice for the next thread */
-	SysTick->VAL = 0;
-
-	/* Request PendSV exception to trigger the assembly-level context switch */
-	SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;
+	OS_Timer_Reset();
 }
 
 /*
@@ -362,6 +355,8 @@ void OS_Sleep(int32_t time_ms) {
  * Runs inside the SysTick interrupt handler.
  */
 void OS_Scheduler(void) {
+
+	OS_Timer_ClearITFlag();
 
 	/* Update Sleep Queue: only the head needs to be decremented */
 	if (SleepListHead != NULL) {
