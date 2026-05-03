@@ -22,7 +22,7 @@ int main(void)
 	OS_AddThread(&Task0, 1);
 	OS_AddThread(&Task1, 2);
 	OS_AddThread(&Task2, 3);
-	OS_Launch(8000); // Switch every 1ms
+	OS_Launch(); // Switch every 1ms
 	return 0;
 }
 

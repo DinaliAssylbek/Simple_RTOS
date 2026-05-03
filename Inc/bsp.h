@@ -11,6 +11,7 @@
 #define BSP_H_
 
 #include <stdint.h>
+#include "stm32f1xx_hal.h"
 
 uint32_t StartCritical(void);
 
