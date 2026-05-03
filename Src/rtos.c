@@ -1,13 +1,8 @@
-/*
+/**
  * rtos.c
- *
- *  Created on: Apr 15, 2026
- *      Author: dinaliassylbek
+ * Author: Dinali Assylbek
+ * Date: May 2026
  */
-
-//==================================================================================================
-// INCLUDES
-//==================================================================================================
 
 #include "rtos.h"
 #include "bsp.h"
@@ -15,386 +10,295 @@
 #include "stm32f103xb.h"
 #include <stddef.h>
 
-//==================================================================================================
-// GLOBAL AND STATIC VARIABLES
-//==================================================================================================
+//==============================================================================
+// KERNEL STORAGE
+//==============================================================================
 
-static tcbType tcbs[MAXNUMTHREADS];
-static int32_t Stacks[MAXNUMTHREADS][STACKSIZE];
+static tcbType  tcbs[MAXNUMTHREADS];
+static int32_t  Stacks[MAXNUMTHREADS][STACKSIZE];
 
 tcbType *RunPt;
 tcbType *SleepListHead;
 
-//==================================================================================================
-// FUNCTION PROTOTYPES
-//==================================================================================================
+//==============================================================================
+// INTERNAL PROTOTYPES
+//==============================================================================
 
 void OS_Scheduler(void);
-
-/*
- * Sets up a thread's stack with dummy values so it can be "restored" the first time it runs.
- */
 static void setInitialStack(int i);
-
-/*
- * Low-power background task that runs only when no other threads are ready.
- */
 static void idleTask(void);
-
-/*
- * Unlinks a TCB from its current circular list and updates the anchor
- */
 static void unlink_ready(tcbType *p);
-
-/*
- * Inserts a TCB into the circular ready list before the current Head
- */
 static void link_ready(tcbType *p);
 
-/*
- * Assembly function that triggers the hardware to launch the first thread and start the OS.
- */
 extern void OS_Start(void);
-
-/*
- * Assembly function that handles register saving and calling OS_Scheduler
- */
 extern void OS_ThreadSwitch(void);
 
-//==================================================================================================
-// IMPLEMENTATION
-//==================================================================================================
+//==============================================================================
+// HELPERS
+//==============================================================================
 
+/* Puts the CPU in low-power mode when no threads are ready */
 static void idleTask(void) {
-	while (1) {
-		__asm volatile ("wfi"); /* assembly instruction puts the processor in a low-power state */
-	}
+    while (1) {
+        __asm volatile ("wfi");
+    }
 }
 
+/* Removes a thread from the circular ready list */
 static void unlink_ready(tcbType *p) {
     p->prev->next = p->next;
     p->next->prev = p->prev;
 }
 
+/* Adds a thread into the circular ready list after RunPt */
 static void link_ready(tcbType *p) {
-	p->next = RunPt->next;
-	p->prev = RunPt;
-	RunPt->next->prev = p;
-	RunPt->next = p;
+    p->next = RunPt->next;
+    p->prev = RunPt;
+    RunPt->next->prev = p;
+    RunPt->next = p;
 }
 
+/* Forges a hardware-compatible stack frame for new threads */
 static void setInitialStack(int i) {
-	tcbs[i].sp = &Stacks[i][STACKSIZE - 16]; 	// Stack Pointer
-	Stacks[i][STACKSIZE - 1] = 0x01000000; 		// Thumb bit (PSR)
-	Stacks[i][STACKSIZE - 3] = 0x10101010; 		// Link Register (R14)
-	Stacks[i][STACKSIZE - 4] = 0x12121212; 		// R12
-	Stacks[i][STACKSIZE - 5] = 0x20202020; 		// R3
-	Stacks[i][STACKSIZE - 6] = 0x21212121; 		// R2
-	Stacks[i][STACKSIZE - 7] = 0x02020202; 		// R1
-	Stacks[i][STACKSIZE - 8] = 0x32323232; 		// R0
-	Stacks[i][STACKSIZE - 9] = 0x31313131; 		// R11
-	Stacks[i][STACKSIZE - 10] = 0x30303030;		// R10
-	Stacks[i][STACKSIZE - 11] = 0x03030303;		// R9
-	Stacks[i][STACKSIZE - 12] = 0x13131313;		// R8
-	Stacks[i][STACKSIZE - 13] = 0x23232323;		// R7
-	Stacks[i][STACKSIZE - 14] = 0x04040404;		// R6
-	Stacks[i][STACKSIZE - 15] = 0x40404040;		// R5
-	Stacks[i][STACKSIZE - 16] = 0x41414141;		// R4
+    tcbs[i].sp = &Stacks[i][STACKSIZE - 16];
+
+    Stacks[i][STACKSIZE - 1]  = 0x01000000; // xPSR (Thumb bit)
+    Stacks[i][STACKSIZE - 3]  = 0x10101010; // R14 (LR)
+    Stacks[i][STACKSIZE - 4]  = 0x12121212; // R12
+    Stacks[i][STACKSIZE - 5]  = 0x20202020; // R3
+    Stacks[i][STACKSIZE - 6]  = 0x21212121; // R2
+    Stacks[i][STACKSIZE - 7]  = 0x02020202; // R1
+    Stacks[i][STACKSIZE - 8]  = 0x32323232; // R0
+
+    /* These registers must be restored manually in assembly */
+    Stacks[i][STACKSIZE - 9]  = 0x31313131; // R11
+    Stacks[i][STACKSIZE - 10] = 0x30303030; // R10
+    Stacks[i][STACKSIZE - 11] = 0x03030303; // R9
+    Stacks[i][STACKSIZE - 12] = 0x13131313; // R8
+    Stacks[i][STACKSIZE - 13] = 0x23232323; // R7
+    Stacks[i][STACKSIZE - 14] = 0x04040404; // R6
+    Stacks[i][STACKSIZE - 15] = 0x40404040; // R5
+    Stacks[i][STACKSIZE - 16] = 0x41414141; // R4
 }
 
-/*
- * Dynamically allocates a TCB slot and splices the new task into
- * the active circular linked list for round-robin scheduling.
- */
-void OS_AddThread(void(*task)(void), uint8_t priority) {
+//==============================================================================
+// KERNEL API
+//==============================================================================
 
-	uint32_t state = StartCritical();
-
-	/* Search for the first available slot in the TCB array */
-	uint32_t new_tcb_idx;
-	for (new_tcb_idx = 0; new_tcb_idx < MAXNUMTHREADS; new_tcb_idx++)
-	{
-		if (tcbs[new_tcb_idx].status == FREE)
-			break;
-	}
-
-	/* Exit if no free TCB slots are available */
-	assert_or_panic(new_tcb_idx != MAXNUMTHREADS);
-
-	/* Centralized insertion logic */
-	tcbs[new_tcb_idx].priority = priority;
-	tcbs[new_tcb_idx].status = TAKEN;	/* Mark slot as occupied */
-
-	/* Initialize hardware context and set the entry point for the task */
-	setInitialStack(new_tcb_idx);
-	Stacks[new_tcb_idx][STACKSIZE - 2] = (int32_t)(task);
-
-	link_ready(&(tcbs[new_tcb_idx]));
-
-	EndCritical(state);
-
-}
-
-/*
- * Permanently removes the current thread from the Ready List,
- * marks its TCB as FREE for future use, and yields the CPU.
- */
-void OS_KillThread(void) {
-
-	uint32_t state = StartCritical();
-
-	if (RunPt == &tcbs[0]) {
-	    panic(); // Can't remove idle task
-	}
-
-	RunPt->status = FREE;
-	unlink_ready(RunPt);
-
-	/* Force an immediate context switch to a living thread */
-	OS_Suspend();
-
-	EndCritical(state);
-
-}
-
-/*
- * Initializes the hardware clock, clears the TCB table, and seeds the
- * circular linked list with the background IdleTask.
- */
+/* Prepares the kernel, timer, and the background idle task */
 void OS_Init(void) {
+    StartCritical();
+    OS_Timer_Init();
 
-	StartCritical();
+    for (int i = 0; i < MAXNUMTHREADS; i++) {
+        tcbs[i].status = FREE;
+    }
 
-	OS_Timer_Init();
+    /* Initialize the idle task as the first node in the circular list */
+    tcbs[0].next     = &tcbs[0];
+    tcbs[0].prev     = &tcbs[0];
+    tcbs[0].sleep    = 0;
+    tcbs[0].status   = TAKEN;
+    tcbs[0].priority = UINT8_MAX;
 
-	/* Reset all TCB statuses to ensure a clean slate for dynamic allocation */
-	for(int i = 0; i < MAXNUMTHREADS; i++) {
-		tcbs[i].status = FREE;
-	}
+    setInitialStack(0);
+    Stacks[0][STACKSIZE - 2] = (int32_t)(&idleTask);
 
-	/* Initialize IdleTask (TCB 0) as the anchor for the circular list */
-	tcbs[0].next = &tcbs[0];
-	tcbs[0].prev = &tcbs[0];
-	tcbs[0].sleep = 0;
-	tcbs[0].status = TAKEN;
-	tcbs[0].priority = UINT8_MAX;
-
-	/* Set up the initial stack frame for the IdleTask */
-	setInitialStack(0);
-	Stacks[0][STACKSIZE - 2] = (int32_t)(&idleTask);
-
-	/* Set the starting point for the scheduler and AddThread handshake */
-	RunPt = &tcbs[0];
-
-	SleepListHead = NULL;
-
+    RunPt = &tcbs[0];
+    SleepListHead = NULL;
 }
 
-/*
- * Configures the SysTick timer for the desired time slice and triggers
- * the assembly-level routine to start the first thread.
- */
+/* Allocates a TCB and adds a new function to the scheduler */
+void OS_AddThread(void(*task)(void), uint8_t priority) {
+    uint32_t state = StartCritical();
+
+    uint32_t new_idx;
+    for (new_idx = 0; new_idx < MAXNUMTHREADS; new_idx++) {
+        if (tcbs[new_idx].status == FREE) break;
+    }
+
+    assert_or_panic(new_idx != MAXNUMTHREADS);
+
+    tcbs[new_idx].priority = priority;
+    tcbs[new_idx].status   = TAKEN;
+
+    setInitialStack(new_idx);
+    Stacks[new_idx][STACKSIZE - 2] = (int32_t)(task);
+
+    link_ready(&(tcbs[new_idx]));
+    EndCritical(state);
+}
+
+/* Removes the active thread from rotation and yields the CPU */
+void OS_KillThread(void) {
+    uint32_t state = StartCritical();
+    if (RunPt == &tcbs[0]) panic(); // Cannot kill the idle task
+
+    RunPt->status = FREE;
+    unlink_ready(RunPt);
+
+    OS_Suspend(); // Force switch since RunPt is no longer valid
+    EndCritical(state);
+}
+
+/* Starts the hardware timer and triggers the first thread */
 void OS_Launch(void) {
-	OS_Timer_Start();
-	OS_Start();
+    OS_Timer_Start();
+    OS_Start();
 }
 
-/*
- * Initializes a semaphore counter and sets up an empty queue for
- * any threads that will eventually block on this resource.
- */
-void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
-	s->value = initialValue;
-	s->BlockedListHead = NULL;
-	s->BlockedListTail = NULL;
-}
-
-/*
- * Decrements semaphore; if < 0, moves the current thread from the
- * circular Ready List to the semaphore's FIFO Blocked Queue and yields.
- */
-void OS_Wait(semaphoreType *s) {
-	uint32_t status = StartCritical();
-
-	s->value--;
-
-	/* If value is negative, the resource is held by another thread */
-	if (s->value < 0) {
-
-		tcbType *curr = RunPt;
-		RunPt = curr->next;
-		unlink_ready(curr);
-
-		/* Append to Blocked Queue */
-		if (s->BlockedListTail == NULL) { /* Queue is empty */
-
-			s->BlockedListHead = curr;
-			s->BlockedListTail = curr;
-			s->BlockedListHead->next = NULL;
-			s->BlockedListHead->prev = NULL;
-
-		} else { 	/* Queue has threads—attach RunPt to the Tail */
-
-			s->BlockedListTail->next = curr;
-			curr->prev = s->BlockedListTail;
-			curr->next = NULL;
-			s->BlockedListTail = curr;
-
-		}
-
-		OS_Suspend();
-
-	}
-
-	EndCritical(status);
-
-}
-
-/*
- * Increments the semaphore and moves the highest-priority blocked thread
- * from the semaphore's FIFO queue back into the circular Ready List.
- */
-void OS_Signal(semaphoreType *s) {
-	uint32_t status = StartCritical();
-
-	s->value++;
-
-	/* If value is still <= 0, threads are blocked and one must be woken up */
-	if (s->value <= 0) {
-		/* Pop the head of the blocked FIFO queue */
-		tcbType *p = s->BlockedListHead;
-		s->BlockedListHead = p->next;
-
-		/* Maintain queue integrity if it becomes empty */
-		if (s->BlockedListHead == NULL) {
-			s->BlockedListTail = NULL;
-		} else {
-			s->BlockedListHead->prev = NULL;
-		}
-
-		link_ready(p);
-	}
-
-	EndCritical(status);
-}
-
-/*
- * Manually triggers a context switch by clearing the SysTick counter
- * and setting the PendSV interrupt bit in the Interrupt Control State Register.
- */
+/* Triggers a PendSV exception to initiate a context switch */
 void OS_Suspend(void) {
-	OS_Timer_Reset();
+    OS_Timer_Reset();
 }
 
-/*
- * Blocks the current thread for a specified time using a Delta-encoded list.
- * Removes the thread from the Ready List and inserts it into SleepListHead.
- */
+//==============================================================================
+// SYNCHRONIZATION
+//==============================================================================
+
+/* Initializes a counting semaphore with an empty block list */
+void OS_InitSemaphore(semaphoreType *s, int32_t initialValue) {
+    s->value = initialValue;
+    s->BlockedListHead = NULL;
+    s->BlockedListTail = NULL;
+}
+
+/* Acquires a resource or blocks the thread if none are available */
+void OS_Wait(semaphoreType *s) {
+    uint32_t status = StartCritical();
+    s->value--;
+
+    if (s->value < 0) {
+        tcbType *curr = RunPt;
+
+        /* Must point RunPt elsewhere before unlinking it from ready list */
+        RunPt = curr->next;
+        unlink_ready(curr);
+
+        /* Standard FIFO queue insertion */
+        if (s->BlockedListTail == NULL) {
+            s->BlockedListHead = curr;
+            s->BlockedListTail = curr;
+            curr->next = NULL;
+            curr->prev = NULL;
+        } else {
+            s->BlockedListTail->next = curr;
+            curr->prev = s->BlockedListTail;
+            curr->next = NULL;
+            s->BlockedListTail = curr;
+        }
+        OS_Suspend();
+    }
+    EndCritical(status);
+}
+
+/* Releases a resource and wakes the first waiting thread */
+void OS_Signal(semaphoreType *s) {
+    uint32_t status = StartCritical();
+    s->value++;
+
+    if (s->value <= 0) {
+        /* Pop from FIFO blocked list */
+        tcbType *p = s->BlockedListHead;
+        s->BlockedListHead = p->next;
+
+        if (s->BlockedListHead == NULL) {
+            s->BlockedListTail = NULL;
+        } else {
+            s->BlockedListHead->prev = NULL;
+        }
+        link_ready(p); // Move back to the ready rotation
+    }
+    EndCritical(status);
+}
+
+//==============================================================================
+// SLEEP
+//==============================================================================
+
+/* Blocks the current thread for time_ms using a delta-encoded list */
 void OS_Sleep(int32_t time_ms) {
+    uint32_t status = StartCritical();
 
-	uint32_t status = StartCritical();
+    RunPt->sleep = time_ms;
+    tcbType *curr = RunPt;
 
-	RunPt->sleep = time_ms;
+    /* Ensure RunPt is safe before removing this thread from ready list */
+    RunPt = curr->next;
+    unlink_ready(curr);
 
-	tcbType *curr = RunPt;
-	RunPt = curr->next;
-	unlink_ready(curr);
+    if (SleepListHead == NULL) {
+        SleepListHead = curr;
+        curr->next = NULL;
+        curr->prev = NULL;
+    } else {
+        /* New thread wakes up before the current head */
+        if (SleepListHead->sleep >= curr->sleep) {
+            SleepListHead->sleep -= curr->sleep; // Adjust next delay relative to new head
+            curr->next = SleepListHead;
+            SleepListHead->prev = curr;
+            curr->prev = NULL;
+            SleepListHead = curr;
+        } else {
+            /* Find the correct spot while subtracting elapsed deltas */
+            tcbType *curr_node = SleepListHead;
+            tcbType *prev_node = NULL;
 
-	/* Case 1: Sleep list is empty */
-	if (SleepListHead == NULL) {
+            while (curr_node != NULL && curr_node->sleep < curr->sleep) {
+                curr->sleep -= curr_node->sleep;
+                prev_node = curr_node;
+                curr_node = curr_node->next;
+            }
 
-		SleepListHead = curr;
-		SleepListHead->next = NULL;
-		SleepListHead->prev = NULL;
+            prev_node->next = curr;
+            curr->next = curr_node;
+            curr->prev = prev_node;
 
-	} else {
-
-		/* Case 2: New thread should be the new head */
-		if (SleepListHead->sleep >= curr->sleep) {
-
-			SleepListHead->sleep -= curr->sleep;
-			curr->next = SleepListHead;
-			SleepListHead->prev = curr;
-			curr->prev = NULL;
-			SleepListHead = curr;
-
-		} else {
-
-			/* Case 3: Traverse and insert while maintaining delta encoding */
-			tcbType *curr_node = SleepListHead;
-			tcbType *prev_node = NULL;
-
-			while (curr_node != NULL && curr_node->sleep < curr->sleep) {
-				curr->sleep -= curr_node->sleep;
-				prev_node = curr_node;
-				curr_node = curr_node->next;
-			}
-
-			/* Splice thread into the sleep queue */
-			prev_node->next = curr;
-			curr->next = curr_node;
-			curr->prev = prev_node;
-
-			/* Update the delta for the following node, if it exists */
-			if (curr_node != NULL) {
-				curr_node->prev = curr;
-				curr_node->sleep -= curr->sleep;
-			}
-
-		}
-
-	}
-
-	OS_Suspend();
-	EndCritical(status);
-
+            /* Adjust the delta of the following thread */
+            if (curr_node != NULL) {
+                curr_node->prev = curr;
+                curr_node->sleep -= curr->sleep;
+            }
+        }
+    }
+    OS_Suspend();
+    EndCritical(status);
 }
 
-/*
- * Updates the sleep timers and determines the next thread to run.
- * Runs inside the SysTick interrupt handler.
- */
+//==============================================================================
+// SCHEDULER
+//==============================================================================
+
+/* Decides which thread to run next based on priority and sleep status */
 void OS_Scheduler(void) {
+    OS_Timer_ClearITFlag();
 
-	OS_Timer_ClearITFlag();
+    /* 1. Update delta sleep list; only the head needs a decrement */
+    if (SleepListHead != NULL) {
+        SleepListHead->sleep--;
 
-	/* Update Sleep Queue: only the head needs to be decremented */
-	if (SleepListHead != NULL) {
+        /* Wake all threads whose delta has reached zero */
+        while (SleepListHead != NULL && SleepListHead->sleep == 0) {
+            tcbType *p = SleepListHead;
+            SleepListHead = SleepListHead->next;
+            if (SleepListHead != NULL) SleepListHead->prev = NULL;
+            link_ready(p);
+        }
+    }
 
-		SleepListHead->sleep--;
+    /* 2. Priority Search: starts at RunPt->next to support Round-Robin */
+    tcbType *next_pt = RunPt->next;
+    tcbType *iterating_pt = next_pt;
+    uint32_t max_priority = 256;
+    tcbType *best_pt = next_pt;
 
-		/* Wake all threads whose timers have expired (delta reached zero) */
-		while (SleepListHead != NULL && SleepListHead->sleep == 0) {
-			tcbType *p = SleepListHead;
-			SleepListHead = SleepListHead->next;
+    do {
+        if (iterating_pt->priority < max_priority) {
+            best_pt = iterating_pt;
+            max_priority = best_pt->priority;
+        }
+        iterating_pt = iterating_pt->next;
+    } while (iterating_pt != next_pt);
 
-			if (SleepListHead != NULL) {
-				SleepListHead->prev = NULL;
-			}
-
-			link_ready(p);
-		}
-
-	}
-
-	tcbType *next_pt = RunPt->next;
-	tcbType *iterating_pt = next_pt;
-
-	/* Search for highest priority thread not sleeping or blocked */
-	uint32_t max_priority = UINT8_MAX + 1;
-	tcbType *best_pt = next_pt;
-
-	do
-	{
-		if (iterating_pt->priority < max_priority)
-		{
-			best_pt = iterating_pt;
-			max_priority = best_pt->priority;
-		}
-		iterating_pt = iterating_pt->next;
-	} while (iterating_pt != next_pt);
-
-
-	RunPt = best_pt;
-
+    RunPt = best_pt;
 }
