@@ -2,7 +2,7 @@
 	.thumb
 
 	.global OS_Start
-	.global SysTick_Handler
+	.global OS_ThreadSwitch
 
 	.extern RunPt
 	.extern OS_Scheduler
@@ -30,10 +30,10 @@ OS_Start:
 	BX LR			 // Return to first function (task0)
 
 // =====================
-// SysTick_Handler
+// OS_ThreadSwitch
 // =====================
-.type SysTick_Handler, %function
-SysTick_Handler:
+.type OS_ThreadSwitch, %function
+OS_ThreadSwitch:
 	CPSID I			 // Disable Interrupts
 	PUSH {R4-R11}	 // push remaining registers onto the stack
 

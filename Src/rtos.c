@@ -56,6 +56,11 @@ static void link_ready(tcbType *p);
  */
 extern void OS_Start(void);
 
+/*
+ * Assembly function that handles register saving and calling OS_Scheduler
+ */
+extern void OS_ThreadSwitch(void);
+
 //==================================================================================================
 // IMPLEMENTATION
 //==================================================================================================
