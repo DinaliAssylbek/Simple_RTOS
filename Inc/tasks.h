@@ -10,6 +10,8 @@
 #ifndef TASKS_H_
 #define TASKS_H_
 
+#include "stm32f1xx_hal.h"
+
 /**
  * Function descriptions are provided in rtos.c
  */
