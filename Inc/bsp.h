@@ -17,4 +17,6 @@ uint32_t StartCritical(void);
 
 void EndCritical(uint32_t state);
 
+void SystemClock_Config(void);
+
 #endif /* BSP_H_ */

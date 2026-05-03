@@ -1,11 +1,15 @@
 /*
  * tasks.c
- *
- * Application-level thread definitions.
- * Demonstrates task creation, sleeping, and lifecycle management.
+ * Application-level thread definitions
+ * Description: Demonstrates task creation, lifecycle management, and
+ * dynamic thread spawning/killing within the RTOS environment.
  *
  * Author: Dinali Assylbek
  */
+
+//==================================================================================================
+// INCLUDES
+//==================================================================================================
 
 #include "tasks.h"
 #include "profile.h"
@@ -13,7 +17,10 @@
 
 #include <stdint.h>
 
-/* Toggles PA5 and dynamically spawns/kills threads based on a counter */
+//==================================================================================================
+// GLOBAL FUNCTIONS
+//==================================================================================================
+
 void Task0(void) {
 
 	Profile_Init(GPIOA, &PROF_PA5);
@@ -25,10 +32,12 @@ void Task0(void) {
 		HAL_Delay(60);
 		count++;
 
+		/* Dynamically spawn Task3 after 100 iterations */
 		if (count == 100) {
 			OS_AddThread(Task3, 1);
 		}
 
+		/* Terminate self after 200 iterations */
 		if (count == 200) {
 			Profile_Reset(GPIOA, 5);
 			OS_KillThread();
@@ -37,24 +46,24 @@ void Task0(void) {
 	}
 }
 
-/* Toggles PB2 in a burst then suspends itself indefinitely */
 void Task1(void) {
 
 	Profile_Init(GPIOB, &PROF_PB2);
 
 	while (1) {
 
+		/* Execute toggle burst */
 		for (int i = 0; i < 12; i++) {
 			Profile_Toggle(GPIOB, 2);
 			HAL_Delay(50);
 		}
 
+		/* Suspend execution indefinitely until externally signaled */
 		OS_Suspend();
 
 	}
 }
 
-/* Toggles PC4 and demonstrates a long-duration OS_Sleep */
 void Task2(void) {
 
 	Profile_Init(GPIOC, &PROF_PC4);
@@ -65,6 +74,7 @@ void Task2(void) {
 		Profile_Toggle(GPIOC, 4);
 		count++;
 
+		/* Demonstrate long-duration thread sleeping */
 		if (count % 35 == 0) {
 			OS_Sleep(4500);
 		} else {
@@ -74,7 +84,6 @@ void Task2(void) {
 	}
 }
 
-/* Toggles PB13 periodically; typically spawned by Task0 */
 void Task3(void) {
 
 	Profile_Init(GPIOB, &PROF_PB13);
@@ -87,4 +96,3 @@ void Task3(void) {
 	}
 
 }
-
