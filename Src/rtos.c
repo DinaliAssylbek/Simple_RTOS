@@ -74,13 +74,6 @@ static void idleTask(void) {
 static void unlink_ready(tcbType *p) {
     p->prev->next = p->next;
     p->next->prev = p->prev;
-
-    if (RunPt == p) {
-		RunPt = p->next;
-	}
-
-    p->next = NULL;
-    p->prev = NULL;
 }
 
 static void link_ready(tcbType *p) {
@@ -150,13 +143,12 @@ void OS_KillThread(void) {
 
 	uint32_t state = StartCritical();
 
-	tcbType *dead = RunPt;
-	if (dead == &tcbs[0]) {
+	if (RunPt == &tcbs[0]) {
 	    panic(); // Can't remove idle task
 	}
 
-	unlink_ready(dead);
-	dead->status = FREE;
+	RunPt->status = FREE;
+	unlink_ready(RunPt);
 
 	/* Force an immediate context switch to a living thread */
 	OS_Suspend();
@@ -230,7 +222,8 @@ void OS_Wait(semaphoreType *s) {
 	if (s->value < 0) {
 
 		tcbType *curr = RunPt;
-		unlink_ready(RunPt);
+		RunPt = curr->next;
+		unlink_ready(curr);
 
 		/* Append to Blocked Queue */
 		if (s->BlockedListTail == NULL) { /* Queue is empty */
@@ -270,8 +263,7 @@ void OS_Signal(semaphoreType *s) {
 	if (s->value <= 0) {
 		/* Pop the head of the blocked FIFO queue */
 		tcbType *p = s->BlockedListHead;
-		s->BlockedListHead = s->BlockedListHead->next;
-		link_ready(p);
+		s->BlockedListHead = p->next;
 
 		/* Maintain queue integrity if it becomes empty */
 		if (s->BlockedListHead == NULL) {
@@ -279,6 +271,8 @@ void OS_Signal(semaphoreType *s) {
 		} else {
 			s->BlockedListHead->prev = NULL;
 		}
+
+		link_ready(p);
 	}
 
 	EndCritical(status);
@@ -303,7 +297,8 @@ void OS_Sleep(int32_t time_ms) {
 	RunPt->sleep = time_ms;
 
 	tcbType *curr = RunPt;
-	unlink_ready(RunPt);
+	RunPt = curr->next;
+	unlink_ready(curr);
 
 	/* Case 1: Sleep list is empty */
 	if (SleepListHead == NULL) {
