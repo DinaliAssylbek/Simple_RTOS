@@ -36,7 +36,7 @@ void SystemClock_Config(void) {
 	RCC_OscInstance.HSEState = RCC_HSE_ON;
 	RCC_OscInstance.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
 	RCC_OscInstance.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInstance.PLL.Source = RCC_PLLSOURCE_HSE;
+	RCC_OscInstance.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	RCC_OscInstance.PLL.PLLMUL = RCC_PLL_MUL9;
 	HAL_RCC_OscConfig(&RCC_OscInstance);
 
@@ -46,5 +46,5 @@ void SystemClock_Config(void) {
 	RCC_ClkInstance.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInstance.APB1CLKDivider = RCC_HCLK_DIV2;
 	RCC_ClkInstance.APB2CLKDivider = RCC_SYSCLK_DIV1;
-	HAL_RCC_ClockConfig(&RCC_ClkInstance, FLASH_LATENCY_2);
+	HAL_RCC_ClockConfig(&RCC_ClkInstance, FLASH_LATENCY_0);
 }

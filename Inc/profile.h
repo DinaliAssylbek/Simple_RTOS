@@ -9,6 +9,7 @@
 #ifndef PROFILE_H_
 #define PROFILE_H_
 
+#include "stm32f103xb.h"
 #include "stm32f1xx_hal.h"
 
 /*

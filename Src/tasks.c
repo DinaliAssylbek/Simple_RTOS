@@ -14,7 +14,7 @@
 #include "tasks.h"
 #include "profile.h"
 #include "rtos.h"
-
+#include "stm32f1xx_hal.h" // Add this directly here
 #include <stdint.h>
 
 //==================================================================================================

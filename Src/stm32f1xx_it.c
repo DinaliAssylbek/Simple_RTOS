@@ -18,6 +18,8 @@
 // CORTEX-M3 PROCESSOR EXCEPTIONS
 //==================================================================================================
 
+extern void OS_ThreadSwitch(void);
+
 void NMI_Handler(void) {}
 
 void HardFault_Handler(void) {
