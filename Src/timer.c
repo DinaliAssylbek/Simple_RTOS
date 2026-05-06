@@ -23,17 +23,6 @@ static TIM_HandleTypeDef TIM_HandleInstance;
 // GLOBAL FUNCTIONS
 //==================================================================================================
 
-/* Low-level hardware initialization for the TIM2 peripheral */
-void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim) {
-
-	__HAL_RCC_TIM2_CLK_ENABLE();
-
-	/* Set interrupt priority and enable IRQ in the NVIC */
-	HAL_NVIC_SetPriority(TIM2_IRQn, TIM2_IRQn_Preempt_Priority, TIM2_IRQn_Sub_Priority);
-	HAL_NVIC_EnableIRQ(TIM2_IRQn);
-
-}
-
 /* Configure TIM2 for a periodic 1ms heartbeat */
 void OS_Timer_Init(void) {
 
