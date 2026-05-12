@@ -13,8 +13,7 @@
 #include "stm32f1xx_hal.h"
 
 /*
- * Available Profile Pins
- * Use these as the 'GPIO_Init' argument in Profile_Init
+ * Profile Pins
  */
 extern const GPIO_InitTypeDef PROF_PA5;
 extern const GPIO_InitTypeDef PROF_PB2;

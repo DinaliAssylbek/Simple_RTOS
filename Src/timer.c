@@ -28,7 +28,7 @@ void OS_Timer_Init(void) {
 
 	TIM_HandleInstance.Instance = TIM2;
 
-	/* Clock math: (72MHz / 72) = 1MHz. (1MHz / 1000) = 1kHz (1ms) */
+	/* (72MHz / 72) = 1MHz. (1MHz / 1000) = 1kHz (1ms) */
 	TIM_HandleInstance.Init.Prescaler = TIM2_IRQn_Prescaler - 1;
 	TIM_HandleInstance.Init.CounterMode = TIM_COUNTERMODE_DOWN;
 	TIM_HandleInstance.Init.Period = TIM2_IRQn_Period - 1;

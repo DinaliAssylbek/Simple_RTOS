@@ -23,7 +23,7 @@ extern void OS_ThreadSwitch(void);
 void NMI_Handler(void) {}
 
 void HardFault_Handler(void) {
-	while (1) {} /* Add a breakpoint here during debugging */
+	while (1) {}
 }
 
 void MemManage_Handler(void) {
@@ -51,17 +51,13 @@ void PendSV_Handler(void) {
 }
 
 void SysTick_Handler(void) {
-	HAL_IncTick(); /* Essential for HAL_Delay() and timeout logic */
+	HAL_IncTick();
 }
 
 //==================================================================================================
 // STM32F1xx PERIPHERAL INTERRUPT HANDLERS
 //==================================================================================================
 
-/*
- * TIM2 global interrupt
- * This is the heartbeat of your RTOS scheduler.
- */
 void TIM2_IRQHandler(void) {
 	OS_ThreadSwitch();
 }

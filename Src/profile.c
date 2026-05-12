@@ -33,11 +33,10 @@ void Profile_Init(GPIO_TypeDef *GPIOx, const GPIO_InitTypeDef *GPIO_Init) {
 	else if (GPIOx == GPIOB) __HAL_RCC_GPIOB_CLK_ENABLE();
 	else if (GPIOx == GPIOC) __HAL_RCC_GPIOC_CLK_ENABLE();
 
-	/* Initialize the pin
-	 * Note: Cast to (GPIO_InitTypeDef*) to satisfy HAL signature */
+	/* Initialize the pin. Cast to (GPIO_InitTypeDef*) to satisfy HAL signature */
 	HAL_GPIO_Init(GPIOx, (GPIO_InitTypeDef *)GPIO_Init);
 
-	/* Ensure the pin starts LOW */
+	/* Ensure the pin starts low */
 	HAL_GPIO_WritePin(GPIOx, GPIO_Init->Pin, GPIO_PIN_RESET);
 
 }

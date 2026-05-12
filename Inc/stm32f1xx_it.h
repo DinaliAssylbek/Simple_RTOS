@@ -1,8 +1,7 @@
 /*
  * stm32f1xx_it.h
  *
- *  Created on: May 2, 2026
- *      Author: dinaliassylbek
+ *  Author: Dinali Assylbek
  */
 
 #ifndef STM32F1XX_IT_H_

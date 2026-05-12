@@ -14,7 +14,7 @@
 #include "tasks.h"
 #include "profile.h"
 #include "rtos.h"
-#include "stm32f1xx_hal.h" // Add this directly here
+#include "stm32f1xx_hal.h"
 #include <stdint.h>
 
 //==================================================================================================
@@ -32,12 +32,10 @@ void Task0(void) {
 		HAL_Delay(60);
 		count++;
 
-		/* Dynamically spawn Task3 after 100 iterations */
 		if (count == 100) {
 			OS_AddThread(Task3, 1);
 		}
 
-		/* Terminate self after 200 iterations */
 		if (count == 200) {
 			Profile_Reset(GPIOA, 5);
 			OS_KillThread();
@@ -52,13 +50,11 @@ void Task1(void) {
 
 	while (1) {
 
-		/* Execute toggle burst */
 		for (int i = 0; i < 12; i++) {
 			Profile_Toggle(GPIOB, 2);
 			HAL_Delay(50);
 		}
 
-		/* Suspend execution indefinitely until externally signaled */
 		OS_Suspend();
 
 	}
@@ -74,7 +70,6 @@ void Task2(void) {
 		Profile_Toggle(GPIOC, 4);
 		count++;
 
-		/* Demonstrate long-duration thread sleeping */
 		if (count % 35 == 0) {
 			OS_Sleep(4500);
 		} else {
