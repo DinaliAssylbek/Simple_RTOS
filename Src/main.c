@@ -8,6 +8,7 @@
 
 #include "tasks.h"
 #include "rtos.h"
+#include "bsp.h"
 
 int main(void)
 {
@@ -22,5 +23,6 @@ int main(void)
 }
 
 void panic() {
-
+	StartCritical();
+	__asm("BKPT 1");
 }
