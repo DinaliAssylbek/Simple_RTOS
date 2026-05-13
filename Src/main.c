@@ -9,10 +9,12 @@
 #include "tasks.h"
 #include "rtos.h"
 #include "bsp.h"
+#include "profile.h"
 
 int main(void)
 {
 	HAL_Init();
+	SystemClock_Config();
 	OS_Init();
 
 	OS_AddThread(&Task0, 1);
