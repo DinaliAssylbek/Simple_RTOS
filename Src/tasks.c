@@ -28,7 +28,7 @@ void Task0(void) {
 
 	while (1) {
 
-		Profile_Toggle(GPIOA, 5);
+		Profile_Toggle(GPIOA, GPIO_PIN_5);
 		HAL_Delay(60);
 		count++;
 
@@ -37,7 +37,7 @@ void Task0(void) {
 		}
 
 		if (count == 200) {
-			Profile_Reset(GPIOA, 5);
+			Profile_Reset(GPIOA, GPIO_PIN_5);
 			OS_KillThread();
 		}
 
@@ -51,7 +51,7 @@ void Task1(void) {
 	while (1) {
 
 		for (int i = 0; i < 12; i++) {
-			Profile_Toggle(GPIOB, 2);
+			Profile_Toggle(GPIOB, GPIO_PIN_2);
 			HAL_Delay(50);
 		}
 
@@ -67,7 +67,7 @@ void Task2(void) {
 
 	while (1) {
 
-		Profile_Toggle(GPIOC, 4);
+		Profile_Toggle(GPIOC, GPIO_PIN_4);
 		count++;
 
 		if (count % 35 == 0) {
@@ -85,7 +85,7 @@ void Task3(void) {
 
 	while (1) {
 
-		Profile_Toggle(GPIOB, 13);
+		Profile_Toggle(GPIOB, GPIO_PIN_13);
 		HAL_Delay(60);
 
 	}
