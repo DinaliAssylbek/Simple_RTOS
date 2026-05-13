@@ -53,11 +53,3 @@ void PendSV_Handler(void) {
 void SysTick_Handler(void) {
 	HAL_IncTick();
 }
-
-//==================================================================================================
-// STM32F1xx PERIPHERAL INTERRUPT HANDLERS
-//==================================================================================================
-
-void TIM2_IRQHandler(void) {
-	OS_ThreadSwitch();
-}
