@@ -46,5 +46,5 @@ void SystemClock_Config(void) {
 	RCC_ClkInstance.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInstance.APB1CLKDivider = RCC_HCLK_DIV2;
 	RCC_ClkInstance.APB2CLKDivider = RCC_SYSCLK_DIV1;
-	HAL_RCC_ClockConfig(&RCC_ClkInstance, FLASH_LATENCY_0);
+	HAL_RCC_ClockConfig(&RCC_ClkInstance, FLASH_LATENCY_2);
 }

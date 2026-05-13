@@ -20,9 +20,4 @@ void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
 
-/*
- * Peripheral Interrupt Handlers
- */
-void TIM2_IRQHandler(void);
-
 #endif /* STM32F1XX_IT_H_ */

@@ -3,6 +3,8 @@
 
 	.global OS_Start
 	.global OS_ThreadSwitch
+	.set TIM2_IRQHandler, OS_ThreadSwitch
+	.global TIM2_IRQHandler
 
 	.extern RunPt
 	.extern OS_Scheduler
