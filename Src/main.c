@@ -18,8 +18,8 @@ int main(void)
 	OS_Init();
 
 	OS_AddThread(&Task0, 1);
-	OS_AddThread(&Task1, 2);
-	OS_AddThread(&Task2, 3);
+	OS_AddThread(&Task1, 1);
+	OS_AddThread(&Task2, 1);
 	OS_Launch(); // Switch every 1ms
 	return 0;
 }

@@ -14,7 +14,7 @@
 /* Timer Configuration: Based on a 72MHz clock source */
 #define TIM2_IRQn_Preempt_Priority 0    /* Highest priority for scheduler precision */
 #define TIM2_IRQn_Sub_Priority     0    /* Tie-breaker priority */
-#define TIM2_IRQn_Period           1000 /* 1000 ticks = 1ms at 1MHz */
+#define TIM2_IRQn_Period           1000000 /* 1000 ticks = 1ms at 1MHz */
 #define TIM2_IRQn_Prescaler        72   /* Divides 72MHz to 1MHz */
 
 void OS_Timer_Init(void);

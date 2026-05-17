@@ -19,6 +19,7 @@ static int32_t  Stacks[MAXNUMTHREADS][STACKSIZE];
 
 tcbType *RunPt;
 tcbType *SleepListHead;
+tcbType *ReadyListHead;
 
 //==============================================================================
 // INTERNAL PROTOTYPES
@@ -105,6 +106,7 @@ void OS_Init(void) {
     Stacks[0][STACKSIZE - 2] = (int32_t)(&idleTask);
 
     RunPt = &tcbs[0];
+    ReadyListHead = &tcbs[0];
     SleepListHead = NULL;
 }
 
@@ -172,7 +174,7 @@ void OS_Wait(semaphoreType *s) {
         tcbType *curr = RunPt;
 
         /* Must point RunPt elsewhere before unlinking it from ready list */
-        RunPt = curr->next;
+        ReadyListHead = curr->next;
         unlink_ready(curr);
 
         /* Standard FIFO queue insertion */
@@ -224,7 +226,7 @@ void OS_Sleep(int32_t time_ms) {
     tcbType *curr = RunPt;
 
     /* Ensure RunPt is safe before removing this thread from ready list */
-    RunPt = curr->next;
+    ReadyListHead = curr->next;
     unlink_ready(curr);
 
     if (SleepListHead == NULL) {
@@ -261,19 +263,12 @@ void OS_Sleep(int32_t time_ms) {
             }
         }
     }
-    OS_Suspend();
+
     EndCritical(status);
+    OS_Suspend();
 }
 
-//==============================================================================
-// SCHEDULER
-//==============================================================================
-
-/* Decides which thread to run next based on priority and sleep status */
-void OS_Scheduler(void) {
-    OS_Timer_ClearITFlag();
-
-    /* 1. Update delta sleep list; only the head needs a decrement */
+void OS_ProcessSleepQueue(void) {
     if (SleepListHead != NULL) {
         SleepListHead->sleep--;
 
@@ -285,9 +280,18 @@ void OS_Scheduler(void) {
             link_ready(p);
         }
     }
+}
 
-    /* 2. Priority Search: starts at RunPt->next to support Round-Robin */
-    tcbType *next_pt = RunPt->next;
+//==============================================================================
+// SCHEDULER
+//==============================================================================
+
+/* Decides which thread to run next based on priority and sleep status */
+void OS_Scheduler(void) {
+    OS_Timer_ClearITFlag();
+
+    /* Priority Search: starts at RunPt->next to support Round-Robin */
+    tcbType *next_pt = ReadyListHead;
     tcbType *iterating_pt = next_pt;
     uint32_t max_priority = 256;
     tcbType *best_pt = next_pt;
@@ -301,4 +305,5 @@ void OS_Scheduler(void) {
     } while (iterating_pt != next_pt);
 
     RunPt = best_pt;
+    ReadyListHead = best_pt->next;
 }

@@ -59,7 +59,7 @@ void OS_Wait(semaphoreType *s);
 
 void OS_Signal(semaphoreType *s);
 
-
+void OS_ProcessSleepQueue(void);
 
 
 /**
