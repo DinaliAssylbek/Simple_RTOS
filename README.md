@@ -7,6 +7,8 @@ The implementation was heavily inspired by the book *Real-Time Operating Systems
 
 This RTOS was built primarily as a learning project to explore embedded systems design, ARM exception handling, and low-level kernel architecture without relying on existing frameworks such as FreeRTOS or Zephyr.
 
+If you found this project interesting or useful, consider starring the repository.
+
 ## Features
 
 - Preemptive priority-based scheduler
