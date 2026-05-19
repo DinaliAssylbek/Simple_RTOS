@@ -16,10 +16,14 @@ This RTOS was built primarily as a learning project to explore embedded systems 
 - Delta-encoded sleep queue
 - FIFO semaphore blocked queues
 - Critical sections using PRIMASK interrupt masking
-- Idle task using ARM `WFI` low-power instruction
+- Idle task using ARM WFI low-power instruction
 - Timer-driven thread switching
 - Thread stack initialization compatible with Cortex-M exception return behavior
 
 ## What is a Real-Time Operating System
 
-In the book, Jonathan Valvano defines a real time operating system as "software that manages [memory, I/O, data, and processors], guaranteeing all timing constraints are satisfied.". In other words the rtos is responsible for handling interactions between different components of a computer's architecture assuring that the task(s) at hand will execute with a certain time constraint, granted that you follow the constraints that it presents to the developer. When mentioning an operating system, some globally known names might arise in your head such as Windows, MacOS, Linux. Although also operating systems, they differ from the ones that are used by microcontrollers in embedded systems. My design more closly resembles the design of operating systems such as FreeRTOS and Zephyr, which are targeted towards microcontrollers such as the STM32. The main differenes between a regular and a real time operating system are that regualrs OS are more complex, best effort based, distribute tasks based on fairness, measure distribution based on average bandiwdth, and have more unpredictable behavior. On the other hand, real-time OS is more simple, gaurentees responses, follows strict timing contrisn, measures distrubution of tasks based on minimum and maxiumum limits, and are used on known components. This is a real-time operating system designed for the STM32 based on C. Similar to higher level programming languages the main goal of this operating system was to allow the developer to use threading, meaning ... . This abstracts away the complex hardware interaction to create a more smoother developing experience for developers. 
+A real-time operating system (RTOS) is responsible for managing task scheduling, synchronization, timing, and hardware resources while meeting deterministic timing requirements.
+
+Unlike general-purpose operating systems such as Windows, macOS, or Linux, RTOS kernels prioritize predictable execution and bounded latency over throughput and user interactivity. Real-time operating systems are commonly used in embedded systems where timing guarantees are critical, including robotics, automotive systems, medical devices, industrial control systems, and microcontroller-based applications.
+
+The primary goal of this RTOS was to provide a lightweight threading and synchronization environment for embedded applications running on STM32 hardware while exposing the low-level mechanics behind operating system design.
