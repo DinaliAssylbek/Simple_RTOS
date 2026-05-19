@@ -27,3 +27,26 @@ A real-time operating system (RTOS) is responsible for managing task scheduling,
 Unlike general-purpose operating systems such as Windows, macOS, or Linux, RTOS kernels prioritize predictable execution and bounded latency over throughput and user interactivity. Real-time operating systems are commonly used in embedded systems where timing guarantees are critical, including robotics, automotive systems, medical devices, industrial control systems, and microcontroller-based applications.
 
 The primary goal of this RTOS was to provide a lightweight threading and synchronization environment for embedded applications running on STM32 hardware while exposing the low-level mechanics behind operating system design.
+
+## Architecture
+
+![Architecture Diagram](images/Architecture.png)
+
+### Scheduler
+The scheduler uses a preemptive priority-based design with round-robin behavior among equal-priority tasks. Scheduling decisions occur periodically from a timer interrupt.
+
+### Context Switching
+Context switching is implemented in ARM assembly. The kernel manually saves and restores registers not automatically preserved during exception entry.
+
+### Ready Queue
+Runnable threads are stored in a circular doubly-linked list, allowing efficient insertion and removal during scheduling operations.
+
+### Sleep Queue
+Sleeping threads are managed using a delta-encoded linked list. Only the head node is decremented each timer tick, reducing per-tick overhead to O(1).
+
+### Synchronization
+Counting semaphores are implemented using FIFO blocked queues. Threads waiting on unavailable resources are removed from the ready queue until signaled.
+
+### Critical Sections
+Critical kernel operations are protected using PRIMASK interrupt masking to prevent race conditions during shared data structure updates.
+
