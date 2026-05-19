@@ -50,3 +50,9 @@ Counting semaphores are implemented using FIFO blocked queues. Threads waiting o
 ### Critical Sections
 Critical kernel operations are protected using PRIMASK interrupt masking to prevent race conditions during shared data structure updates.
 
+## Demonstration
+
+The image below shows multiple RTOS tasks executing concurrently with periodic sleeping and scheduling behavior verified using a logic analyzer.
+
+![Logic Analyzer Graph](Images/LogicAnalyzer.png)
+
