@@ -30,7 +30,7 @@ The primary goal of this RTOS was to provide a lightweight threading and synchro
 
 ## Architecture
 
-![Architecture Diagram](images/Architecture.png)
+![Architecture Diagram](Images/Architecture.png)
 
 ### Scheduler
 The scheduler uses a preemptive priority-based design with round-robin behavior among equal-priority tasks. Scheduling decisions occur periodically from a timer interrupt.
