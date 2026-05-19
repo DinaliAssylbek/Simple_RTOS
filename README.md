@@ -7,8 +7,6 @@ The implementation was heavily inspired by the book *Real-Time Operating Systems
 
 This RTOS was built primarily as a learning project to explore embedded systems design, ARM exception handling, and low-level kernel architecture without relying on existing frameworks such as FreeRTOS or Zephyr.
 
----
-
 ## Features
 
 - Preemptive priority-based scheduler
@@ -21,8 +19,6 @@ This RTOS was built primarily as a learning project to explore embedded systems 
 - Idle task using ARM `WFI` low-power instruction
 - Timer-driven thread switching
 - Thread stack initialization compatible with Cortex-M exception return behavior
-
----
 
 ## What is a Real-Time Operating System
 
